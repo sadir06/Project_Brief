@@ -5,7 +5,7 @@
 ---
 ## Team Project - RISC-V RV32I Processor
 
-**_Peter Cheung, V2.1 - 25 Nov 2024_**
+**_Peter Cheung, V2.2 - 20 Nov 20245_**
 
 ---
 
