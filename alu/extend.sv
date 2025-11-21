@@ -1,4 +1,4 @@
-module imm_gen (
+module extend (
     input  logic [31:0] instr,
     input  logic [2:0]  ImmSrc,   // 000=I, 001=S, 010=B, 011=U, 100=J
     output logic [31:0] ImmExt
