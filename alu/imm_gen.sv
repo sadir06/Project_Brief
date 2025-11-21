@@ -22,7 +22,7 @@ module imm_gen (
         instr[7],
         instr[30:25],
         instr[11:8],
-        1'b0            // bit 0: always 0 because branch targets are word-aligned, even addresses (imm<<1)
+        1'b0 // always 0 because branch targets are word-aligned, even addresses (imm<<1)
     };
     assign imm_b = {{19{imm_b_raw[12]}}, imm_b_raw};
 
@@ -31,7 +31,7 @@ module imm_gen (
 
     // J-type, PC+4 or PC+ offset(<<1)
     // imm[20]= instr[31], imm[10:1]= instr[30:21], imm[11]= instr[20], imm[19:12]= instr[19:12], imm[0]= always 0
-    logic [20:0] imm_j_raw; //reconstructed immediate before sign extension
+    logic [20:0] imm_j_raw;
     assign imm_j_raw = {
         instr[31],
         instr[19:12],
@@ -43,11 +43,11 @@ module imm_gen (
 
    always_comb begin
     unique case (ImmSrc)
-        3'b000: ImmExt = imm_i; // I-type
-        3'b001: ImmExt = imm_s; // S-type
-        3'b010: ImmExt = imm_b; // B-type
-        3'b011: ImmExt = imm_u; // U-type
-        3'b100: ImmExt = imm_j; // J-type
+        3'b000: ImmExt = imm_i; 
+        3'b001: ImmExt = imm_s; 
+        3'b010: ImmExt = imm_b; 
+        3'b011: ImmExt = imm_u; 
+        3'b100: ImmExt = imm_j;
         default: ImmExt = 32'b0;
     endcase
 end
