@@ -10,11 +10,7 @@ module data_mem #(
     output logic [DATA_WIDTH-1:0]    read_data_o
 );
 
-    // Memory array: byte-addressable
-    // Memory layout:
-    // 0x00000000-0x000000FF: Reserved (256 bytes)
-    // 0x00000100-0x000001FF: pdf_array (256 bytes)  
-    // 0x00010000-0x0001FFFF: data_array (64KB)
+    // Memory array: byte-addressable, 128KB
     logic [7:0] ram_array [0:2**ADDR_WIDTH-1];
     
     initial begin
@@ -26,19 +22,15 @@ module data_mem #(
     logic [ADDR_WIDTH-1:0] byte_addr;
     assign byte_addr = addr_i[ADDR_WIDTH-1:0];
     
-    //===========================================
     // SYNCHRONOUS WRITE LOGIC
-    //===========================================
     always_ff @(posedge clk) begin
         if (write_en_i && funct3_i == 3'b000) begin  // SB only
             ram_array[byte_addr] <= write_data_i[7:0];
         end
     end
     
-    //===========================================
-    // ASYNCHRONOUS READ LOGIC
-    //===========================================
     
+    // ASYNCHRONOUS READ LOGIC  
     always_comb begin
         if (funct3_i == 3'b100) begin  // LBU only
             read_data_o = {24'b0, ram_array[byte_addr]};  // Zero-extend
