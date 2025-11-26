@@ -27,5 +27,3 @@ module alu (
     assign Zero = (ALUResult == 32'b0);
 
 endmodule
-
-

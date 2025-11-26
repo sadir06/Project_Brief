@@ -1,9 +1,8 @@
-
 module control_unit (
 
     input  logic [6:0] opcode,   // instr[6:0]
     input  logic [2:0] funct3,   // instr[14:12]
-    //input logic [6:0] funct7,   // for later when R-type ALU is added
+    input logic [6:0] funct7,   // for later when R-type ALU is added
 
     output logic       RegWrite,
     output logic       MemWrite,
@@ -158,5 +157,3 @@ always_comb begin
     end
 
 endmodule
-
-

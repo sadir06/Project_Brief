@@ -17,7 +17,8 @@ module datapath (
     //Outputs
     output logic [31:0] ALUResult, // To Data Mem Addr / PC logic
     output logic [31:0] WriteData, // To Data Mem Data
-    output logic        Zero       // To Control Unit
+    output logic        Zero,       // To Control Unit
+    output logic [31:0] a0 // Output register for testbench
 );
 
     //Internal Wires
@@ -29,13 +30,15 @@ module datapath (
     //Register File Instance
     register_file RF (
         .clk (clk),
+        .rst (rst),
         .WE3 (RegWrite),
         .A1 (Instr[19:15]),
         .A2 (Instr[24:20]),
         .A3 (Instr[11:7]),
         .WD3 (Result),
         .RD1 (SrcA),
-        .RD2 (WriteData)
+        .RD2 (WriteData),
+        .a0 (a0)
     );
 
     //Extend Unit Instance
@@ -68,4 +71,3 @@ module datapath (
     end
 
 endmodule
-
