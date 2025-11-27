@@ -6,6 +6,7 @@ module control_unit (
 
     output logic       RegWrite,
     output logic       MemWrite,
+    output logic       MemRead,
     output logic       ALUSrc,      // 1: use ImmExt as srcB, 0: use rs2
     output logic       Branch,      //(B-type)?
     output logic       Jump,        // jal (J-type)?
@@ -41,6 +42,7 @@ always_comb begin
     //defaults = NOP
     RegWrite   = 1'b0;
     MemWrite   = 1'b0;
+    MemRead    = 1'b0;
     ALUSrc     = 1'b0;
     Branch     = 1'b0;
     Jump       = 1'b0;
@@ -77,6 +79,7 @@ always_comb begin
             if (funct3 == 3'b100) begin
                 RegWrite   = 1'b1;
                 MemWrite   = 1'b0;
+                MemRead    = 1'b1;    // read memory
                 ALUSrc     = 1'b1;      // base + offset
                 ImmSrc     = 3'b000;    
                 ResultSrc  = RES_MEM;   // data from memory
