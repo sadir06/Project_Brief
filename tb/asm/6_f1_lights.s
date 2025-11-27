@@ -1,54 +1,46 @@
-# F1 Starting Lights - Basic Test Version 
-# Matches Lab 3 FSM behavior: progressively turn on lights
-# Pattern: 0x00 -> 0x01 -> 0x03 -> 0x07 -> 0x0F -> ... -> 0xFF
-# Now includes LBU for comprehensive instruction testing
-
 .text
-.equ LIGHT_ADDR, 0x100
+.globl main
 
 main:
-    LI   s0, LIGHT_ADDR     # Light output address
-    LI   a0, 0              # Start with no lights
-    
-light_on_loop:
-    SB   a0, 0(s0)          # Store current pattern
-    JAL  ra, increment_light # Call subroutine to get next pattern
-    
-    LI   t0, 0xFF           # Check if all lights on (0xFF = 0b11111111)
-    BNE  a0, t0, light_on_loop
-    
-    # All lights on (0xFF)
-    SB   a0, 0(s0)          # Store final pattern
-    
-    # Verify the store by reading back (uses LBU)
-    LBU  t1, 0(s0)          # Read back the light pattern
-    # t1 should now be 0xFF if store worked correctly
-    
-    # Call lights_off subroutine
-    JAL  ra, lights_off
-    
-    # Return value for test verification
-    LI   a0, 255            
-    J    end
+    lui     a0, 0
+    addi    a0, a0, 0       # a0 = 0 (current LED pattern display)
+    lui     t3, 0
+    addi    t3, t3, 0xFF    # t3 = 0xFF (all lights on marker)
 
-# Subroutine: Increment light pattern
-# Creates sequence: 0 -> 1 -> 3 -> 7 -> 15 -> 31 -> 63 -> 127 -> 255
-# Formula: new = (old * 2) + 1
-increment_light:
-    ADD  a0, a0, a0         # Shift left: a0 = a0 * 2
-    ADDI a0, a0, 1          # Add 1: a0 = a0 + 1
-    JALR zero, ra, 0        # Return
-
-# Subroutine: Turn lights off
-lights_off:
-    LI   a0, 0
-    SB   a0, 0(s0)
+light_loop:
+    # Faster delay
+    lui     t1, 0x0
+    addi    t1, t1, 5       # t1 = 5
+delay_loop:
+    addi    t1, t1, -1      # Decrement
+    bne     t1, zero, delay_loop
     
-    # Verify lights are off by reading back (uses LBU again)
-    LBU  t2, 0(s0)          # Read back to confirm
-    # t2 should be 0x00
+    # Instant increment using temporary register
+    add     t2, a0, a0      # t2 = a0 * 2 (shift left)
+    addi    t2, t2, 1       # t2 = t2 + 1
+    add     a0, t2, zero    # a0 = t2 (instant update!)
     
-    JALR zero, ra, 0        # Return
-
-end:
-    J    end                # Infinite loop
+    # Check if all lights on
+    bne     a0, t3, light_loop
+    
+all_on:
+    # Delay with all lights on
+    lui     t1, 0x0
+    addi    t1, t1, 5
+delay_all_on:
+    addi    t1, t1, -1
+    bne     t1, zero, delay_all_on
+    
+    # Turn all lights off
+    lui     a0, 0
+    addi    a0, a0, 0       # a0 = 0
+    
+    # Delay with lights off
+    lui     t1, 0x0
+    addi    t1, t1, 5
+delay_off:
+    addi    t1, t1, -1
+    bne     t1, zero, delay_off
+    
+    # Restart sequence
+    jal     zero, main
