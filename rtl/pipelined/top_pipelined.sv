@@ -1,7 +1,7 @@
 // Top-level pipelined RISC-V processor
 // Integrates all pipeline stages, registers, hazard detection, and forwarding
 
-module top_pipe (
+module top_pipelined (
     input  logic        clk,
     input  logic        rst,
     input  logic        trigger,     // Trigger input (for VBuddy, unused in pipelined)
@@ -24,7 +24,8 @@ module top_pipe (
     logic [31:0] ImmExtD;            
     logic [4:0]  rs1_addrD;          
     logic [4:0]  rs2_addrD;          
-    logic [4:0]  rdD;                
+    logic [4:0]  rdD;
+    logic [2:0]  funct3D;            // Need funct3 for memory operations
     
     // Control signals from control_unit in ID
     logic        RegWriteD;
@@ -46,6 +47,7 @@ module top_pipe (
     logic [4:0]  rdE;
     logic [4:0]  rs1_addrE;
     logic [4:0]  rs2_addrE;
+    logic [2:0]  funct3E;            // funct3 in EX stage
     
     logic        RegWriteE;
     logic        MemWriteE;
@@ -75,13 +77,15 @@ module top_pipe (
     logic [31:0] PCTargetM;
     logic [31:0] PCPlus4M;
     logic [4:0]  rdM;
+    logic [2:0]  funct3M;            // funct3 in MEM stage
     
     logic        RegWriteM;
     logic [1:0]  ResultSrcM;
     logic        MemWriteM;
     
     // MEM Stage Signals 
-    logic [31:0] ReadDataM;          
+    logic [31:0] ReadDataM;
+    logic [31:0] ForwardDataM;       // Muxed data to forward from MEM stage
     
     // MEM/WB Pipeline Register Signals 
     logic [31:0] ALUResultW;
@@ -136,7 +140,6 @@ module top_pipe (
         .instr_o(instrF)
     );
     
-    
 
     // IF/ID Pipeline Register
     
@@ -154,11 +157,12 @@ module top_pipe (
     
     
     // ID STAGE - Instruction Decode
-    
+
     // Extract instruction fields
     assign rs1_addrD = instrD[19:15];
     assign rs2_addrD = instrD[24:20];
     assign rdD       = instrD[11:7];
+    assign funct3D   = instrD[14:12];  // Extract funct3 for memory ops
     
     
     control_unit control_unit_inst (
@@ -226,6 +230,7 @@ module top_pipe (
         .rdD(rdD),
         .rs1_addrD(rs1_addrD),
         .rs2_addrD(rs2_addrD),
+        .funct3D(funct3D),       // Pass funct3 through pipeline
         
         // Control outputs
         .RegWriteE(RegWriteE),
@@ -245,7 +250,8 @@ module top_pipe (
         .ImmExtE(ImmExtE),
         .rdE(rdE),
         .rs1_addrE(rs1_addrE),
-        .rs2_addrE(rs2_addrE)
+        .rs2_addrE(rs2_addrE),
+        .funct3E(funct3E)        // Output funct3
     );
     
     
@@ -266,7 +272,7 @@ module top_pipe (
         .PCE(pcE),
         .ForwardAE(ForwardAE),
         .ForwardBE(ForwardBE),
-        .ALUResultM(ALUResultM),
+        .ALUResultM(ForwardDataM),   // Forward muxed data from MEM stage
         .ResultW(ResultW),
         .ALUResultE(ALUResultE),
         .WriteDataE(WriteDataE),
@@ -285,6 +291,7 @@ module top_pipe (
         .PCTargetE(PCTargetE),
         .rdE(rdE),
         .PCPlus4E(PCPlus4E),
+        .funct3E(funct3E),       // Pass funct3 to MEM stage
         .RegWriteE(RegWriteE),
         .ResultSrcE(ResultSrcE),
         .MemWriteE(MemWriteE),
@@ -293,6 +300,7 @@ module top_pipe (
         .PCTargetM(PCTargetM),
         .rdM(rdM),
         .PCPlus4M(PCPlus4M),
+        .funct3M(funct3M),       // Output funct3
         .RegWriteM(RegWriteM),
         .ResultSrcM(ResultSrcM),
         .MemWriteM(MemWriteM)
@@ -307,10 +315,23 @@ module top_pipe (
         .addr_i(ALUResultM),
         .write_data_i(WriteDataM),
         .write_en_i(MemWriteM),
-        .funct3_i(3'b100),       // LBU/SB operations (funct3 would need to be pipelined for full support)
+        .funct3_i(funct3M),      // Use pipelined funct3
         .read_data_o(ReadDataM)
     );
     
+    // MUX to select correct data to forward from MEM stage
+    // When forwarding from MEM, we need what would be written back:
+    // - ALU result
+    // - Memory data
+    // - PC+4 (for JAL/JALR)
+    always_comb begin
+        case (ResultSrcM)
+            2'b00:   ForwardDataM = ALUResultM;   // ALU result
+            2'b01:   ForwardDataM = ReadDataM;    // Memory data
+            2'b10:   ForwardDataM = PCPlus4M;     // PC+4 (for JAL/JALR)
+            default: ForwardDataM = ALUResultM;
+        endcase
+    end
     
 
     // MEM/WB Pipeline Register

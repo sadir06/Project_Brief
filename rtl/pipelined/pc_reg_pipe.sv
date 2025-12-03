@@ -5,7 +5,7 @@ module pc_reg_pipe (
     input  logic [31:0] pc_next,
     output logic [31:0] pc
 );
-    always_ff @(posedge clk or posedge rst) begin
+    always_ff @(negedge clk or posedge rst) begin
         if (rst)
             pc <= 32'hBFC0_0000;
         else if (en)            

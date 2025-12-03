@@ -13,7 +13,7 @@ module if_id_reg (
     output logic [31:0] instrD         // Instruction in Decode stage
 );
 
-    always_ff @(posedge clk or posedge rst) begin
+    always_ff @(negedge clk or posedge rst) begin
         if (rst) begin
             // On reset, clear pipeline register
             pcD    <= 32'b0;
