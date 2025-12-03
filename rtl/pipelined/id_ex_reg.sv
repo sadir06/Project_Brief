@@ -1,7 +1,7 @@
 module id_ex_reg (
     input  logic        clk,
     input  logic        rst,
-    input  logic        flush,         // ID_EX_Flush from hazard_unit (1=insert bubble)
+    input  logic        flush,        // ID_EX_Flush from hazard_unit (1=insert bubble)
     
     // Control signals from ID stage (from control_unit)
     input  logic        RegWriteD,
