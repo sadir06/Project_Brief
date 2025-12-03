@@ -23,7 +23,7 @@ module mem_wb_reg (
     output logic [1:0]  ResultSrcW
 );
 
-    always_ff @(posedge clk or posedge rst) begin
+    always_ff @(negedge clk or posedge rst) begin
         if (rst) begin
             // On reset, clear all pipeline registers
             ALUResultW <= 32'b0;
