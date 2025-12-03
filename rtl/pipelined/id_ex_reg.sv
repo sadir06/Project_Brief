@@ -22,6 +22,8 @@ module id_ex_reg (
     input  logic [4:0]  rdD,           // Destination register address
     input  logic [4:0]  rs1_addrD,     // Source register 1 address
     input  logic [4:0]  rs2_addrD,     // Source register 2 address
+    input  logic [2:0]  funct3D,       // Function code for memory ops
+    input  logic [31:0] PCPlus4D,      // PC+4 from IF stage
     
     // Control outputs to EX stage
     output logic        RegWriteE,
@@ -41,10 +43,12 @@ module id_ex_reg (
     output logic [31:0] ImmExtE,
     output logic [4:0]  rdE,
     output logic [4:0]  rs1_addrE,
-    output logic [4:0]  rs2_addrE
+    output logic [4:0]  rs2_addrE,
+    output logic [2:0]  funct3E,
+    output logic [31:0] PCPlus4E
 );
 
-    always_ff @(posedge clk or posedge rst) begin
+    always_ff @(negedge clk or posedge rst) begin
         if (rst) begin
             // On reset, clear all control and data signals
             RegWriteE    <= 1'b0;
@@ -64,6 +68,8 @@ module id_ex_reg (
             rdE          <= 5'b0;
             rs1_addrE    <= 5'b0;
             rs2_addrE    <= 5'b0;
+            funct3E      <= 3'b0;
+            PCPlus4E     <= 32'b0;
         end 
         else if (flush) begin
             // Insert a bubble: zero ONLY the control bits
@@ -78,15 +84,20 @@ module id_ex_reg (
             ResultSrcE   <= 2'b00;
             ALUControlE  <= 3'b000;
             
+            // Zero rdE to prevent forwarding from flushed instruction
+            rdE          <= 5'b0;
+            
             // Data values can be kept (they won't be used since control bits are zero)
             // But for cleanliness, we could zero them too
             pcE          <= pcD;
             rs1_dataE    <= rs1_dataD;
             rs2_dataE    <= rs2_dataD;
             ImmExtE      <= ImmExtD;
-            rdE          <= rdD;
+            //rdE          <= rdD;
             rs1_addrE    <= rs1_addrD;
             rs2_addrE    <= rs2_addrD;
+            funct3E      <= funct3D;
+            PCPlus4E     <= PCPlus4D;
         end 
         else begin
             // Normal operation: pass all control and data from ID to EX
@@ -107,6 +118,8 @@ module id_ex_reg (
             rdE          <= rdD;
             rs1_addrE    <= rs1_addrD;
             rs2_addrE    <= rs2_addrD;
+            funct3E      <= funct3D;
+            PCPlus4E     <= PCPlus4D;
         end
     end
 
