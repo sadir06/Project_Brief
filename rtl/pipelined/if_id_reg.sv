@@ -21,7 +21,6 @@ module if_id_reg (
         end 
         else if (flush) begin
             // On flush, insert a NOP (all control bits zero)
-            // NOP = addi x0, x0, 0 = 32'h00000013, but all zeros works fine
             pcD    <= 32'b0;
             instrD <= 32'b0;
         end 
