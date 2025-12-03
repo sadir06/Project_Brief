@@ -10,7 +10,7 @@ module mem_wb_reg (
     
     // Control inputs from MEM stage
     input  logic        RegWriteM,     // Register write enable
-    input  logic [1:0]  ResultSrcM,    // Result source: 00=ALU, 01=Mem, 10=PC+4
+    input  logic [1:0]  ResultSrcM,    
     
     // Data outputs to WB stage
     output logic [31:0] ALUResultW,
