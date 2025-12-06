@@ -24,19 +24,39 @@ module data_mem #(
     
     // SYNCHRONOUS WRITE LOGIC
     always_ff @(posedge clk) begin
-        if (write_en_i && funct3_i == 3'b000) begin  // SB only
-            ram_array[byte_addr] <= write_data_i[7:0];
+        if (write_en_i) begin
+            case (funct3_i)
+                3'b000: begin // SB - Store Byte
+                    ram_array[byte_addr] <= write_data_i[7:0];
+                end
+                3'b010: begin // SW - Store Word (little-endian) - REQUIRED for cache writebacks
+                    ram_array[byte_addr]     <= write_data_i[7:0];
+                    ram_array[byte_addr + 1] <= write_data_i[15:8];
+                    ram_array[byte_addr + 2] <= write_data_i[23:16];
+                    ram_array[byte_addr + 3] <= write_data_i[31:24];
+                end
+                default: begin end
+            endcase
         end
     end
     
     
     // ASYNCHRONOUS READ LOGIC  
     always_comb begin
-        if (funct3_i == 3'b100) begin  // LBU only
-            read_data_o = {24'b0, ram_array[byte_addr]};  // Zero-extend
-        end else begin
-            read_data_o = 32'b0;  // Default for unsupported operations
-        end
+        case (funct3_i)
+            3'b100: begin // LBU 
+                read_data_o = {24'b0, ram_array[byte_addr]}; // zero extend
+            end
+            3'b010: begin // LW - Load Word (little-endian) - REQUIRED for cache refills
+                read_data_o = {ram_array[byte_addr + 3], 
+                            ram_array[byte_addr + 2],
+                            ram_array[byte_addr + 1], 
+                            ram_array[byte_addr]};
+            end
+            default: begin
+                read_data_o = 32'b0;
+            end
+        endcase
     end
 
 endmodule
