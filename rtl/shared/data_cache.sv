@@ -71,6 +71,41 @@ module data_cache (
     end
 
 
+    logic [31:0] load_data_sized;
+
+    always_comb begin
+        if (cpu_funct3 == 3'b100) begin 
+            case (addr_offset[1:0])
+                2'b00: load_data_sized = {24'b0, hit_data[7:0]};
+                2'b01: load_data_sized = {24'b0, hit_data[15:8]};
+                2'b10: load_data_sized = {24'b0, hit_data[23:16]};
+                2'b11: load_data_sized = {24'b0, hit_data[31:24]};
+            endcase
+        end else begin
+            load_data_sized = hit_data;
+        end
+    end
+
+
+    logic [31:0] write_data_masked;
+    logic [31:0] current_data;
+
+    always_comb begin
+        current_data = data_array[hit_way_idx][addr_index][word_offset];
+        
+        if (cpu_funct3 == 3'b000) begin
+            case (addr_offset[1:0])
+                2'b00: write_data_masked = {current_data[31:8],  cpu_wdata[7:0]};
+                2'b01: write_data_masked = {current_data[31:16], cpu_wdata[7:0], current_data[7:0]};
+                2'b10: write_data_masked = {current_data[31:24], cpu_wdata[7:0], current_data[15:0]};
+                2'b11: write_data_masked = {cpu_wdata[7:0],      current_data[23:0]};
+            endcase
+        end else begin
+            write_data_masked = cpu_wdata;
+        end
+    end
+
+
 
 // Cache controller FSM (skeleton - needs to be done)
     typedef enum logic [2:0] {
@@ -83,7 +118,7 @@ module data_cache (
 
     cache_state_t state, next_state;
     logic       victim_way; // Which way are we replacing?
-    logic [3:0] shadow_addr; // Captures cpu_addr on miss so that it doesn't change during refill
+    logic [31:0] shadow_addr; // Captures cpu_addr on miss so that it doesn't change during refill
 
     // Memory Interface Signals
     // Since memory is instantiated inside, we mux its inputs here
@@ -148,7 +183,7 @@ module data_cache (
 
                         if (cpu_we) begin
                             // Write-through on hit, we need to update the cache data and dirty bit!!!
-                            data_array[hit_way_idx][addr_index][word_offset] <= cpu_wdata;
+                            data_array[hit_way_idx][addr_index][word_offset] <= write_data_masked;
                             dirty_array[hit_way_idx][addr_index] <= 1'b1; // Mark as dirty
                         end
                     end
@@ -268,8 +303,8 @@ module data_cache (
         end
 
         // Data Output Logic
-        if (state == C_IDLE && hit) begin
-            cpu_rdata = hit_data; // Return cache data
+        if (state == C_IDLE && hit && !cpu_we) begin
+            cpu_rdata = load_data_sized; // Return sized load data
         end 
     end
 
