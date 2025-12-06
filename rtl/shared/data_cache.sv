@@ -1,5 +1,5 @@
 //CPU → data_cache → data_mem → CPU
-// still needs implementation of cache and stall logic
+//still needs implementation of cache and stall logic
 
 module data_cache (
     input  logic        clk,
