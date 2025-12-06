@@ -14,7 +14,7 @@ module data_mem #(
     logic [7:0] ram_array [0:2**ADDR_WIDTH-1];
     
     initial begin
-        // // Load data for PDF program at offset 0x10000
+        // Load data for PDF program at offset 0x10000
         $readmemh("data.hex", ram_array, 17'h10000);
     end
     
