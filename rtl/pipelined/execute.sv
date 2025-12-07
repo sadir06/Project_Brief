@@ -85,8 +85,3 @@ module execute (
     assign WriteDataE = SrcBE_forwarded;
 
 endmodule
-
-
-
-
-
