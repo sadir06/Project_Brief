@@ -47,15 +47,15 @@ module data_cache (
 
     logic                lru_bit     [0:NUM_SETS-1];
 
-    logic miss_load;
     logic [1:0] refill_cnt; // Counts 0..3 during REFILL state
     logic [31:0] mem_rdata; // Output from memory
 
     // Hit detection:
     logic hit_way0, hit_way1;
     logic hit;
-    logic [0:0] hit_way_idx;   // 1 bit since WAYS=2
+    logic hit_way_idx;   // 1 bit since WAYS=2
     logic [31:0] hit_data;
+
     always_comb begin
         hit_way0 = valid_array[0][addr_index] &&
                    (tag_array[0][addr_index] == addr_tag);
@@ -70,7 +70,7 @@ module data_cache (
         else          hit_data = data_array[0][addr_index][word_offset]; // Way 0 has the hit otherwise
     end
 
-
+    // Load data sizing for byte loads
     logic [31:0] load_data_sized;
 
     always_comb begin
@@ -86,12 +86,12 @@ module data_cache (
         end
     end
 
-
+    // Write data masking for byte stores
     logic [31:0] write_data_masked;
-    logic [31:0] current_data;
 
     always_comb begin
-        current_data = data_array[hit_way_idx][addr_index][word_offset];
+        logic [31:0] current_data;
+        current_data = hit_data;
         
         if (cpu_funct3 == 3'b000) begin
             case (addr_offset[1:0])
@@ -105,20 +105,21 @@ module data_cache (
         end
     end
 
-
-
-// Cache controller FSM (skeleton - needs to be done)
+// Cache controller FSM
     typedef enum logic [2:0] {
-        C_IDLE, // Checks for cache hits, if miss -> CPU stall, go to C_MISS_SELECT
-        C_MISS_SELECT, // Decide which value to evict (LRU based), if dirty -> go to C_WRITEBACK, if clean -> go to C_REFILL
-        C_WRITEBACK, // Write back dirty line to memory
-        C_REFILL, // Copy new data form main memory into cache
-        C_RESPOND // One cycle to stabilize and realize the data is now there.
+        C_IDLE,         // Checks for cache hits, if miss -> CPU stall, go to C_MISS_SELECT
+        C_MISS_SELECT,  // Decide which value to evict (LRU based), if dirty -> go to C_WRITEBACK, if clean -> go to C_REFILL
+        C_WRITEBACK,    // Write back dirty line to memory
+        C_REFILL,       // Copy new data from main memory into cache
+        C_RESPOND       // One cycle to stabilize and realize the data is now there
     } cache_state_t;
 
     cache_state_t state, next_state;
     logic       victim_way; // Which way are we replacing?
     logic [31:0] shadow_addr; // Captures cpu_addr on miss so that it doesn't change during refill
+    logic       shadow_we;     // Store whether this was a write miss
+    logic [31:0] shadow_wdata; // Store write data for write miss
+    logic [2:0]  shadow_funct3; // Store funct3 for miss
 
     // Memory Interface Signals
     // Since memory is instantiated inside, we mux its inputs here
@@ -127,18 +128,23 @@ module data_cache (
     logic        mem_we;
 
     // these decode the "shadow_addr" (the address captured when the miss happened)
-    // We use these during REFULL/WRITEBACK because 'cpu_addr' may change while stalled
+    // We use these during REFILL/WRITEBACK because 'cpu_addr' may change while stalled
     logic [INDEX_BITS-1:0]  shadow_index;
     logic [TAG_BITS-1:0]    shadow_tag;
+    logic [OFFSET_BITS-1:0] shadow_offset;
+    logic [1:0]             shadow_word_offset;
     logic [TAG_BITS-1:0]    victim_tag;
 
     // These lines extract the index and tag from the shadow address
-    assign shadow_index = shadow_addr[OFFSET_BITS +: INDEX_BITS];
-    assign shadow_tag   = shadow_addr[31 -: TAG_BITS];
-    assign victim_tag   = tag_array[victim_way][shadow_index]; // Retrieve the old tag sitting in the victim slot to build the writeback address
+    assign shadow_index  = shadow_addr[OFFSET_BITS +: INDEX_BITS];
+    assign shadow_tag    = shadow_addr[31 -: TAG_BITS];
+    assign shadow_offset = shadow_addr[OFFSET_BITS-1:0];
+    assign shadow_word_offset = shadow_offset[3:2];
+    assign victim_tag    = tag_array[victim_way][shadow_index]; // Retrieve the old tag sitting in the victim slot to build the writeback address
 
     // State register + reset of cache arrays
-    always_ff @(negedge clk or posedge rst) begin
+    // Use posedge for everything
+    always_ff @(posedge clk or posedge rst) begin
         integer w;
         integer s;
         integer word;
@@ -146,6 +152,9 @@ module data_cache (
         if (rst) begin
             state <= C_IDLE;
             refill_cnt <= 2'd0;
+            shadow_we <= 1'b0;
+            shadow_wdata <= 32'b0;
+            shadow_funct3 <= 3'b0;
 
             // Clear all tags/valid/dirty and data arrays
             for (w = 0; w < WAYS; w++) begin
@@ -173,8 +182,11 @@ module data_cache (
                     refill_cnt <= 2'd0;
 
                     if (cpu_req && !hit) begin
-                        // Start of the logic for a miss
-                        shadow_addr <= cpu_addr; // Capture the address that caused the miss
+                        // Start of the logic for a miss - capture miss information
+                        shadow_addr   <= cpu_addr; // Capture the address that caused the miss
+                        shadow_we     <= cpu_we;
+                        shadow_wdata  <= cpu_wdata;
+                        shadow_funct3 <= cpu_funct3;
                     end
 
                     if (cpu_req && hit) begin
@@ -205,10 +217,36 @@ module data_cache (
                     // Write new data from memory into cache
                     data_array[victim_way][shadow_index][refill_cnt] <= mem_rdata;
 
-                    if (refill_cnt == 2'd3) begin // Ont the last word (count 3), update metadata
+                    if (refill_cnt == 2'd3) begin // On the last word (count 3), update metadata
                         tag_array[victim_way][shadow_index] <= shadow_tag;
                         valid_array[victim_way][shadow_index] <= 1'b1;
                         dirty_array[victim_way][shadow_index] <= 1'b0; // Fresh line is clean!
+                        // Update LRU - this way was just accessed
+                        lru_bit[shadow_index] <= ~victim_way;
+                    end
+                end
+
+                C_RESPOND: begin
+                    // Handle write miss - now the line is valid, perform the write
+                    if (shadow_we) begin
+                        logic [31:0] resp_write_data;
+                        logic [31:0] resp_current_data;
+                        
+                        resp_current_data = data_array[victim_way][shadow_index][shadow_word_offset];
+                        
+                        if (shadow_funct3 == 3'b000) begin // SB
+                            case (shadow_offset[1:0])
+                                2'b00: resp_write_data = {resp_current_data[31:8],  shadow_wdata[7:0]};
+                                2'b01: resp_write_data = {resp_current_data[31:16], shadow_wdata[7:0], resp_current_data[7:0]};
+                                2'b10: resp_write_data = {resp_current_data[31:24], shadow_wdata[7:0], resp_current_data[15:0]};
+                                2'b11: resp_write_data = {shadow_wdata[7:0], resp_current_data[23:0]};
+                            endcase
+                        end else begin
+                            resp_write_data = shadow_wdata;
+                        end
+                        
+                        data_array[victim_way][shadow_index][shadow_word_offset] <= resp_write_data;
+                        dirty_array[victim_way][shadow_index] <= 1'b1;
                     end
                 end
             
@@ -216,12 +254,7 @@ module data_cache (
             endcase
         end
     end
-
-      
-    
-
-    assign miss_load = cpu_req && !cpu_we && !hit;  // load + miss
-
+        
     // Next-state logic for cache controller
     always_comb begin
         next_state = state;
@@ -250,6 +283,10 @@ module data_cache (
             C_REFILL: begin
                 // Read 4 words, then Done
                 if (refill_cnt == 2'd3)  next_state = C_RESPOND;
+            end
+
+            C_RESPOND: begin
+                next_state = C_IDLE;
             end
 
             default: next_state = C_IDLE;
@@ -295,17 +332,39 @@ module data_cache (
     // Output Assignments 
     always_comb begin
         cpu_stall = 1'b0; // default: no stall
-        cpu_rdata = mem_rdata;
+        cpu_rdata = 32'b0;
 
         // Stall Logic: If we are not IDLE, or if we are IDLE but missed
-        if (state != C_IDLE || (cpu_req && !hit)) begin
+        if (state != C_IDLE) begin
+            cpu_stall = 1'b1;
+        end
+        else if (cpu_req && !hit) begin
             cpu_stall = 1'b1;
         end
 
         // Data Output Logic
-        if (state == C_IDLE && hit && !cpu_we) begin
+        if (state == C_IDLE && cpu_req && hit && !cpu_we) begin
             cpu_rdata = load_data_sized; // Return sized load data
         end 
+        else if (state == C_RESPOND && !shadow_we) begin
+            // For read misses, output data after refill completes
+            logic [31:0] resp_data;
+            logic [31:0] resp_sized;
+            resp_data = data_array[victim_way][shadow_index][shadow_word_offset];
+            
+            if (shadow_funct3 == 3'b100) begin
+                case (shadow_offset[1:0])
+                    2'b00: resp_sized = {24'b0, resp_data[7:0]};
+                    2'b01: resp_sized = {24'b0, resp_data[15:8]};
+                    2'b10: resp_sized = {24'b0, resp_data[23:16]};
+                    2'b11: resp_sized = {24'b0, resp_data[31:24]};
+                endcase
+            end else begin
+                resp_sized = resp_data;
+            end
+            
+            cpu_rdata = resp_sized;
+        end
     end
 
 
