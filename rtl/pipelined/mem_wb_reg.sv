@@ -1,6 +1,7 @@
 module mem_wb_reg (
     input  logic        clk,
     input  logic        rst,
+    input  logic        stall,  // NEW: Cache stall signal - freezes pipeline register
     
     // Data inputs from MEM stage
     input  logic [31:0] ALUResultM,    // ALU result from MEM stage
@@ -34,7 +35,7 @@ module mem_wb_reg (
             RegWriteW  <= 1'b0;
             ResultSrcW <= 2'b00;
         end 
-        else begin
+        else if (!stall) begin  // NEW: Only update when not stalled
             // Normal operation: pass data from MEM to WB
             ALUResultW <= ALUResultM;
             ReadDataW  <= ReadDataM;
@@ -44,6 +45,7 @@ module mem_wb_reg (
             RegWriteW  <= RegWriteM;
             ResultSrcW <= ResultSrcM;
         end
+        // else: stall - hold current values
     end
 
 endmodule
