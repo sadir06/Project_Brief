@@ -46,6 +46,22 @@ TEST_F(CpuTestbench, TestPdf)
     EXPECT_EQ(top_->a0, 15363);
 }
 
+TEST_F(CpuTestbench, TestCacheHit)
+{
+    setupTest("8_cache_hit");
+    initSimulation();
+    runSimulation(CYCLES);
+    EXPECT_EQ(top_->a0, 126);  // Expected result
+}
+
+TEST_F(CpuTestbench, TestCacheMissSetConflict)
+{
+    setupTest("9_cache_miss_set_conflict");
+    initSimulation();
+    runSimulation(CYCLES);
+    EXPECT_EQ(top_->a0, 300);  // Expected result
+}
+
 int main(int argc, char **argv)
 {
     testing::InitGoogleTest(&argc, argv);
