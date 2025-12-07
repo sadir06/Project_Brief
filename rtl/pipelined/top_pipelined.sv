@@ -214,6 +214,7 @@ module top_pipelined (
         .clk(clk),
         .rst(rst),
         .flush(ID_EX_Flush),
+        .stall(CacheStall),  // ADD THIS
         
         // Control inputs
         .RegWriteD(RegWriteD),
@@ -290,6 +291,7 @@ module top_pipelined (
     exe_mem_reg exe_mem_reg_inst (
         .clk(clk),
         .rst(rst),
+        .stall(CacheStall),  // ADD THIS
         .ALUResultE(ALUResultE),
         .WriteDataE(WriteDataE),
         .PCTargetE(PCTargetE),
@@ -347,6 +349,7 @@ module top_pipelined (
     mem_wb_reg mem_wb_reg_inst (
         .clk(clk),
         .rst(rst),
+        .stall(CacheStall),  // ADD THIS
         .ALUResultM(ALUResultM),
         .ReadDataM(ReadDataM),
         .PCPlus4M(PCPlus4M),
