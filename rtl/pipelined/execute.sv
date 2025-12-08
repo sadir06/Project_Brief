@@ -3,7 +3,7 @@ module execute (
 
     // Control Signals (From ID/EX Register)
     input logic             ALUSrcE,
-    input logic [3:0]    ALUControlE,
+    input logic [2:0]    ALUControlE,
 
     // Data Inputs (From ID/EX Register)
     input logic [31:0]    rs1_dataE, //Data read from Reg[rs1]
@@ -72,14 +72,13 @@ module execute (
     assign PCTargetE = PCE + ImmExtE;
     
     //Determine if Branch Condition is met
-        always_comb begin
-        unique case (ALUControlE)
-            ALU_SUB:  cond_trueE = ~ZeroE; // used for BNE (rs1 - rs2 != 0)
-            ALU_SLTU: cond_trueE = ZeroE;  // used for BGEU (rs1 >= rs2 => !(rs1 < rs2))
-            default:  cond_trueE = ZeroE;  // default BEQ-style behaviour if added later
+    always_comb begin
+        case (ALUControlE)
+            3'b001:  cond_trueE = ~ZeroE; // BNE (Branch if Result != 0)
+            3'b011:  cond_trueE = ZeroE;  // BGEU (Branch if SrcA >= SrcB, i.e., !(SrcA < SrcB))
+            default: cond_trueE = ZeroE;  // Default for BEQ
         endcase
     end
-
     // Write Data Output
     // If we are doing a STORE instruction, the data we write to memory comes from rs2. 
     // However, rs2 may have been forwarded, so we output 'SrcBE_forwarded' as 'WriteDataE'.
