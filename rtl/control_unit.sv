@@ -6,14 +6,13 @@ module control_unit (
 
     output logic       RegWrite,
     output logic       MemWrite,
-    output logic       MemRead,
     output logic       ALUSrc,      // 1: use ImmExt as srcB, 0: use rs2
     output logic       Branch,      //(B-type)?
     output logic       Jump,        // jal (J-type)?
     output logic       Jalr,        // jalr (I-type)?
     output logic [2:0] ImmSrc,      // 000=I, 001=S, 010=B, 011=U, 100=J
     output logic [1:0] ResultSrc,   // 00=ALU (ADD...), 01=Mem (LBU), 10=PC+4 (JAL, JALR)
-    output logic [3:0] ALUControl
+    output logic [2:0] ALUControl
 );
 
 //Opcode constants:
@@ -27,20 +26,10 @@ localparam OPC_JALR    = 7'b1100111; // jalr
 localparam OPC_JAL     = 7'b1101111; // jal
 
 //ALUControl:
-// ALUControl (must match alu.sv)
-localparam [3:0]
-    ALU_ADD    = 4'b0000,
-    ALU_SUB    = 4'b0001,
-    ALU_PASS_B = 4'b0010,
-    ALU_SLTU   = 4'b0011,
-    ALU_SLT    = 4'b0100,
-    ALU_XOR    = 4'b0101,
-    ALU_OR     = 4'b0110,
-    ALU_AND    = 4'b0111,
-    ALU_SLL    = 4'b1000,
-    ALU_SRL    = 4'b1001,
-    ALU_SRA    = 4'b1010;
-
+localparam ALU_ADD     = 3'b000;
+localparam ALU_SUB     = 3'b001;
+localparam ALU_PASS_B  = 3'b010;
+localparam ALU_SLTU    = 3'b011;
 
 //ResultSrc:
 localparam RES_ALU     = 2'b00;      // rd = ALUResult
@@ -52,7 +41,6 @@ always_comb begin
     //defaults = NOP
     RegWrite   = 1'b0;
     MemWrite   = 1'b0;
-    MemRead    = 1'b0;
     ALUSrc     = 1'b0;
     Branch     = 1'b0;
     Jump       = 1'b0;
@@ -62,109 +50,33 @@ always_comb begin
     ALUControl = ALU_ADD;
 
     unique case (opcode)
-
-            // R-type ALU operations: ADD, SUB, SLL, SLT, SLTU, XOR, SRL, SRA, OR, AND
+    
+        //R-type: add
         OPC_OP: begin
-            RegWrite   = 1'b1;
-            MemWrite   = 1'b0;
-            MemRead    = 1'b0;
-            ALUSrc     = 1'b0; 
-            ResultSrc  = RES_ALU;    // write ALU result to rd
-            unique case (funct3)
-                3'b000: begin // ADD / SUB
-                    if (funct7 == 7'b0100000)
-                        ALUControl = ALU_SUB;   // SUB
-                    else
-                        ALUControl = ALU_ADD;   // ADD (funct7 = 0000000)
+            if (funct3 == 3'b000 && funct7 == 7'b0000000) begin
+                RegWrite   = 1'b1;
+                ALUSrc     = 1'b0;       // rs2
+                ResultSrc  = RES_ALU;
+                ALUControl = ALU_ADD;
                 end
-                3'b001: begin // SLL
-                    ALUControl = ALU_SLL;
-                end
-                3'b010: begin // SLT
-                    ALUControl = ALU_SLT;
-                end
-                3'b011: begin // SLTU
-                    ALUControl = ALU_SLTU;
-                end
-                3'b100: begin // XOR
-                    ALUControl = ALU_XOR;
-                end
-                3'b101: begin // SRL / SRA
-                    if (funct7 == 7'b0100000)
-                        ALUControl = ALU_SRA;   // arithmetic
-                    else
-                        ALUControl = ALU_SRL;   // logical
-                end
-                3'b110: begin // OR
-                    ALUControl = ALU_OR;
-                end
-                3'b111: begin // AND
-                    ALUControl = ALU_AND;
-                end
-                default: begin
-                    // illegal funct3: treat as NOP
-                    RegWrite = 1'b0;
-                end
-            endcase
-        end
-
-            // I-type ALU operations: ADDI, SLTI, SLTIU, XORI, ORI, ANDI, SLLI, SRLI, SRAI
+            end
+            
+        //I-type ALU: addi
         OPC_OP_IMM: begin
-            RegWrite   = 1'b1;
-            MemWrite   = 1'b0;
-            MemRead    = 1'b0;
-            ALUSrc     = 1'b1; 
-            ImmSrc     = 3'b000;
-            ResultSrc  = RES_ALU;
-            unique case (funct3)
-                3'b000: begin // ADDI
-                    ALUControl = ALU_ADD;
+            if (funct3 == 3'b000) begin
+                RegWrite   = 1'b1;
+                ALUSrc     = 1'b1;      // immediate
+                ImmSrc     = 3'b000;    
+                ResultSrc  = RES_ALU;
+                ALUControl = ALU_ADD;
                 end
-                3'b010: begin // SLTI
-                    ALUControl = ALU_SLT;
-                end
-                3'b011: begin // SLTIU
-                    ALUControl = ALU_SLTU;
-                end
-                3'b100: begin // XORI
-                    ALUControl = ALU_XOR;
-                end
-                3'b110: begin // ORI
-                    ALUControl = ALU_OR;
-                end
-                3'b111: begin // ANDI
-                    ALUControl = ALU_AND;
-                end
-                3'b001: begin // SLLI
-                    // In RV32I, imm[11:5] must be 0000000, which we see as funct7
-                    if (funct7 == 7'b0000000)
-                        ALUControl = ALU_SLL;
-                    else
-                        RegWrite = 1'b0; // illegal, treat as NOP
-                end
-                3'b101: begin // SRLI / SRAI
-                    // imm[11:5] = 0000000 => SRLI, 0100000 => SRAI
-                    if (funct7 == 7'b0000000)
-                        ALUControl = ALU_SRL;
-                    else if (funct7 == 7'b0100000)
-                        ALUControl = ALU_SRA;
-                    else
-                        RegWrite = 1'b0; // illegal, treat as NOP
-                end
-                default: begin
-                    // unknown funct3: treat as NOP
-                    RegWrite = 1'b0;
-                end
-            endcase
-        end
-
+            end
         
         //Load: lbu
         OPC_LOAD: begin
             if (funct3 == 3'b100) begin
                 RegWrite   = 1'b1;
                 MemWrite   = 1'b0;
-                MemRead    = 1'b1;    // read memory
                 ALUSrc     = 1'b1;      // base + offset
                 ImmSrc     = 3'b000;    
                 ResultSrc  = RES_MEM;   // data from memory

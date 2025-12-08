@@ -1,18 +1,5 @@
 #!/bin/bash
 
-# Usage: ./run_f1.sh [single|pipelined]
-# Default: single
-
-# Determine CPU type from argument
-CPU_TYPE=${1:-single}
-
-if [[ "$CPU_TYPE" != "single" && "$CPU_TYPE" != "pipelined" ]]; then
-    echo "Usage: $0 [single|pipelined]"
-    echo "  single    - Run with single-cycle CPU (default)"
-    echo "  pipelined - Run with pipelined CPU"
-    exit 1
-fi
-
 # Clean up any previous obj_dir
 rm -rf obj_dir/
 rm -rf test_out/obj_dir/
@@ -28,22 +15,11 @@ touch test_out/7_f1_lights_other/data.hex
 cp test_out/7_f1_lights_other/program.hex ./program.hex
 cp test_out/7_f1_lights_other/data.hex ./data.hex
 
-# Set top module path based on CPU type
-if [[ "$CPU_TYPE" == "pipelined" ]]; then
-    TOP_MODULE="../rtl/pipelined/top_pipelined.sv"
-    RTL_PATHS="-y ../rtl/pipelined -y ../rtl/shared"
-    echo "Using pipelined CPU: $TOP_MODULE"
-else
-    TOP_MODULE="../rtl/single_cycle/top.sv"
-    RTL_PATHS="-y ../rtl/single_cycle -y ../rtl/shared"
-    echo "Using single-cycle CPU: $TOP_MODULE"
-fi
-
 # Run Verilator with F1 testbench
 verilator -Wall -Wno-fatal --trace \
-          -cc $TOP_MODULE \
+          -cc ../rtl/top.sv \
           --exe ./tests/f1_lights_tb.cpp \
-          $RTL_PATHS \
+          -y ../rtl/ \
           --prefix "Vdut" \
           -o Vdut
 
@@ -54,10 +30,8 @@ make -j -C obj_dir/ -f Vdut.mk Vdut
 ./obj_dir/Vdut
 
 # Move waveform and obj_dir to test directory
-mv f1_lights.vcd test_out/7_f1_lights_other/waveform_${CPU_TYPE}.vcd 2>/dev/null
-mv obj_dir test_out/obj_dir_${CPU_TYPE}
+mv f1_lights.vcd test_out/7_f1_lights_other/waveform.vcd 2>/dev/null
+mv obj_dir test_out/
 
 # Clean up
 rm -f program.hex data.hex
-
-echo "F1 test complete with $CPU_TYPE CPU"

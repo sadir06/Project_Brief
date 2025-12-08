@@ -43,7 +43,7 @@ increment_light:
 
 # Subroutine: Delay
 delay:
-    LI   t1, 2              # Delay counter (adjust to change the delay)
+    LI   t1, 5              # Delay counter (adjust to change the delay)
 delay_loop:
     ADDI t1, t1, -1         # Decrement
     BNE  t1, zero, delay_loop
