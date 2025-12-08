@@ -3,7 +3,10 @@ module execute (
 
     // Control Signals (From ID/EX Register)
     input logic             ALUSrcE,
-    input logic [3:0]    ALUControlE,
+    input logic             ALUSrcAE, // Selects SrcA (PC vs Reg) for AUIPC
+    input logic [3:0]       ALUControlE,
+    input logic [2:0]       Funct3E, //Needed for Branch Type (BEQ vs BNE)
+    input logic             JalrE, // Needed for JALR target calc
 
     // Data Inputs (From ID/EX Register)
     input logic [31:0]    rs1_dataE, //Data read from Reg[rs1]
@@ -30,18 +33,19 @@ module execute (
 
 
     // Internal wires for the "Forwarding Mux" results
-    logic [31:0] SrcAE;
+    logic [31:0] SrcAE_forwarded;
     logic [31:0] SrcBE_forwarded;
-    logic [31:0] SrcBE_Final; // The actual input to the ALU
+    logic [31:0] SrcAE_final;
+    logic [31:0] SrcBE_final; // The actual input to the ALU
     logic       ZeroE; // Zero flag from ALU
 
     //Forwarding Logic for Source A
     always_comb begin
         case (ForwardAE)
-            2'b00: SrcAE = rs1_dataE; // No forwarding
-            2'b01: SrcAE = ResultW; // Forward from WB stage
-            2'b10: SrcAE = ALUResultM; // Forward from MEM stage
-            default: SrcAE = rs1_dataE;
+            2'b00: SrcAE_forwarded = rs1_dataE; // No forwarding
+            2'b01: SrcAE_forwarded = ResultW; // Forward from WB stage
+            2'b10: SrcAE_forwarded = ALUResultM; // Forward from MEM stage
+            default: SrcAE_forwarded = rs1_dataE;
         endcase
     end
 
@@ -55,28 +59,43 @@ module execute (
         endcase
     end
 
+
+    //ALU Source A Mux (For AUIPC)
+    assign SrcAE_final = (ALUSrcAE) ? PCE : SrcAE_forwarded;
+
     // This selects between the (potentially forwarded) rs2 and the Immediate
     // If ALUSrcE is 1, we use the Immediate. If it is 0, we use rs2.
-    assign SrcBE_Final = (ALUSrcE) ? ImmExtE : SrcBE_forwarded;
+    assign SrcBE_final = (ALUSrcE) ? ImmExtE : SrcBE_forwarded;
 
     // You reuse your ALU from the single cycle
     alu alu_inst (
-        .SrcA(SrcAE),
-        .SrcB(SrcBE_Final),
+        .SrcA(SrcAE_final),
+        .SrcB(SrcBE_final),
         .ALUControl(ALUControlE),
         .ALUResult(ALUResultE),
         .Zero(ZeroE)
     );
 
-    //Calculate Branch Target (PC + Immediate)
-    assign PCTargetE = PCE + ImmExtE;
-    
-    //Determine if Branch Condition is met
-        always_comb begin
-        unique case (ALUControlE)
-            ALU_SUB:  cond_trueE = ~ZeroE; // used for BNE (rs1 - rs2 != 0)
-            ALU_SLTU: cond_trueE = ZeroE;  // used for BGEU (rs1 >= rs2 => !(rs1 < rs2))
-            default:  cond_trueE = ZeroE;  // default BEQ-style behaviour if added later
+    // JALR requires setting the LSB to 0
+    always_comb begin
+        if (JalrE)
+            PCTargetE = (SrcAE_forwarded + ImmExtE) & ~32'd1;
+        else
+            //Calculate Branch Target (PC + Immediate)
+            PCTargetE = PCE + ImmExtE;
+    end
+
+    // Full Branch Support
+    // We use Funct3 to determine which condition to check
+    // Relies on ALU performing SUB (for EQ/NE) or SLT (for LT/GE)
+    always_comb begin
+        case (Funct3E)
+            3'b000: cond_trueE = ZeroE;          // BEQ (Zero=1)
+            3'b001: cond_trueE = ~ZeroE;         // BNE (Zero=0)
+            3'b100: cond_trueE = ALUResultE[0];  // BLT (Result=1 from SLT)
+            3'b101: cond_trueE = ~ALUResultE[0]; // BGE (Result=0 from SLT)
+            3'b110: cond_trueE = ALUResultE[0];  // BLTU (Result=1 from SLTU)
+            3'b111: cond_trueE = ~ALUResultE[0]; // BGEU (Result=0 from SLTU)
         endcase
     end
 
