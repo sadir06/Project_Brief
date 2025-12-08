@@ -82,16 +82,10 @@ module top_pipelined (
     logic        RegWriteM;
     logic [1:0]  ResultSrcM;
     logic        MemWriteM;
-
     
     // MEM Stage Signals 
     logic [31:0] ReadDataM;
-    logic [31:0] ForwardDataM;      // Muxed data to forward from MEM stage
-    logic        CacheStall;        // stall signal from data cache
-    logic        MemReadM;
-
-    // Loads have ResultSrcM == 2'b01 (memory result)
-    assign MemReadM = (ResultSrcM == 2'b01);
+    logic [31:0] ForwardDataM;       // Muxed data to forward from MEM stage
     
     // MEM/WB Pipeline Register Signals 
     logic [31:0] ALUResultW;
@@ -110,6 +104,8 @@ module top_pipelined (
     logic        IF_ID_Write;        
     logic        IF_ID_Flush;        
     logic        ID_EX_Flush;        
+    
+    
     
     // IF STAGE - Instruction Fetch
     
@@ -214,7 +210,6 @@ module top_pipelined (
         .clk(clk),
         .rst(rst),
         .flush(ID_EX_Flush),
-        .stall(CacheStall),  // ADD THIS
         
         // Control inputs
         .RegWriteD(RegWriteD),
@@ -291,7 +286,6 @@ module top_pipelined (
     exe_mem_reg exe_mem_reg_inst (
         .clk(clk),
         .rst(rst),
-        .stall(CacheStall),  // ADD THIS
         .ALUResultE(ALUResultE),
         .WriteDataE(WriteDataE),
         .PCTargetE(PCTargetE),
@@ -313,21 +307,17 @@ module top_pipelined (
     );
     
     
-    // MEM STAGE - Memory Access (via Data Cache)
-    data_cache data_cache_inst (
-        .clk       (clk),
-        .rst       (rst),
-
-        // CPU-side (from EX/MEM stage)
-        .cpu_req   (MemReadM | MemWriteM),
-        .cpu_we    (MemWriteM),              // 1 = store
-        .cpu_addr  (ALUResultM),             // byte address
-        .cpu_wdata (WriteDataM),
-        .cpu_funct3(funct3M),
-        .cpu_rdata (ReadDataM),              // load result to MEM/WB
-        .cpu_stall (CacheStall)              // stall signal for hazard unit
+    // MEM STAGE - Memory Access
+    
+    // Data Memory
+    data_mem data_mem_inst (
+        .clk(clk),
+        .addr_i(ALUResultM),
+        .write_data_i(WriteDataM),
+        .write_en_i(MemWriteM),
+        .funct3_i(funct3M),      // Use pipelined funct3
+        .read_data_o(ReadDataM)
     );
-
     
     // MUX to select correct data to forward from MEM stage
     // When forwarding from MEM, we need what would be written back:
@@ -337,7 +327,7 @@ module top_pipelined (
     always_comb begin
         case (ResultSrcM)
             2'b00:   ForwardDataM = ALUResultM;   // ALU result
-            2'b01:   ForwardDataM = ReadDataM;    // Memory data (now comes from cache wrapper)
+            2'b01:   ForwardDataM = ReadDataM;    // Memory data
             2'b10:   ForwardDataM = PCPlus4M;     // PC+4 (for JAL/JALR)
             default: ForwardDataM = ALUResultM;
         endcase
@@ -349,7 +339,6 @@ module top_pipelined (
     mem_wb_reg mem_wb_reg_inst (
         .clk(clk),
         .rst(rst),
-        .stall(CacheStall),  // ADD THIS
         .ALUResultM(ALUResultM),
         .ReadDataM(ReadDataM),
         .PCPlus4M(PCPlus4M),
@@ -389,7 +378,6 @@ module top_pipelined (
         .JumpE(JumpE),
         .JalrE(JalrE),
         .cond_trueE(cond_trueE),
-        .CacheStall (CacheStall),
         .PCWrite(PCWrite),
         .IF_ID_Write(IF_ID_Write),
         .IF_ID_Flush(IF_ID_Flush),

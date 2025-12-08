@@ -1,7 +1,6 @@
 module id_ex_reg (
     input  logic        clk,
     input  logic        rst,
-    input logic         stall, 
     input  logic        flush,        // ID_EX_Flush from hazard_unit (1=insert bubble)
     
     // Control signals from ID stage (from control_unit)
@@ -100,7 +99,7 @@ module id_ex_reg (
             funct3E      <= funct3D;
             PCPlus4E     <= PCPlus4D;
         end 
-        else if (!stall) begin
+        else begin
             // Normal operation: pass all control and data from ID to EX
             RegWriteE    <= RegWriteD;
             MemWriteE    <= MemWriteD;

@@ -3,8 +3,7 @@ module exe_mem_reg (
     // 'M' after a term indicates that it is in the Memory stage
 
     input logic clk, 
-    input logic rst,
-    input logic stall,  // Cache stall signal - freezes pipeline register
+    input logic rst, 
 
     // Data inputs (from the execute stage)
     input logic [31:0] ALUResultE, 
@@ -50,7 +49,7 @@ module exe_mem_reg (
             ResultSrcM <= 2'b00;
             MemWriteM  <= 1'b0;
         end
-        else if (!stall) begin  // Only update when not stalled
+        else begin
             // Normal operation: transfer data from EX stage to the MEM stage
             // We use the <= (non-blocking assignment) to ensure all registers update in parallel
             
@@ -67,7 +66,6 @@ module exe_mem_reg (
             ResultSrcM <= ResultSrcE;
             MemWriteM  <= MemWriteE;
         end
-        // else: stall - hold current values
     end
 
 endmodule
