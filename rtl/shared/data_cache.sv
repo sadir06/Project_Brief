@@ -70,39 +70,77 @@ module data_cache (
         else          hit_data = data_array[0][addr_index][word_offset]; // Way 0 has the hit otherwise
     end
 
-    // Load data sizing for byte loads
+    // Load data sizing for byte/halfword/word loads
     logic [31:0] load_data_sized;
 
     always_comb begin
-        if (cpu_funct3 == 3'b100) begin 
-            case (addr_offset[1:0])
-                2'b00: load_data_sized = {24'b0, hit_data[7:0]};
-                2'b01: load_data_sized = {24'b0, hit_data[15:8]};
-                2'b10: load_data_sized = {24'b0, hit_data[23:16]};
-                2'b11: load_data_sized = {24'b0, hit_data[31:24]};
-            endcase
-        end else begin
-            load_data_sized = hit_data;
-        end
+        case (cpu_funct3)
+            3'b000: begin // LB - Load Byte (sign-extended)
+                case (addr_offset[1:0])
+                    2'b00: load_data_sized = {{24{hit_data[7]}}, hit_data[7:0]};
+                    2'b01: load_data_sized = {{24{hit_data[15]}}, hit_data[15:8]};
+                    2'b10: load_data_sized = {{24{hit_data[23]}}, hit_data[23:16]};
+                    2'b11: load_data_sized = {{24{hit_data[31]}}, hit_data[31:24]};
+                endcase
+            end
+            3'b001: begin // LH - Load Halfword (sign-extended)
+                case (addr_offset[1])
+                    1'b0: load_data_sized = {{16{hit_data[15]}}, hit_data[15:0]};
+                    1'b1: load_data_sized = {{16{hit_data[31]}}, hit_data[31:16]};
+                endcase
+            end
+            3'b010: begin // LW - Load Word
+                load_data_sized = hit_data;
+            end
+            3'b100: begin // LBU - Load Byte Unsigned
+                case (addr_offset[1:0])
+                    2'b00: load_data_sized = {24'b0, hit_data[7:0]};
+                    2'b01: load_data_sized = {24'b0, hit_data[15:8]};
+                    2'b10: load_data_sized = {24'b0, hit_data[23:16]};
+                    2'b11: load_data_sized = {24'b0, hit_data[31:24]};
+                endcase
+            end
+            3'b101: begin // LHU - Load Halfword Unsigned
+                case (addr_offset[1])
+                    1'b0: load_data_sized = {16'b0, hit_data[15:0]};
+                    1'b1: load_data_sized = {16'b0, hit_data[31:16]};
+                endcase
+            end
+            default: begin
+                load_data_sized = hit_data;
+            end
+        endcase
     end
 
-    // Write data masking for byte stores
+    // Write data masking for byte/halfword/word stores
     logic [31:0] write_data_masked;
 
     always_comb begin
         logic [31:0] current_data;
         current_data = hit_data;
         
-        if (cpu_funct3 == 3'b000) begin
-            case (addr_offset[1:0])
-                2'b00: write_data_masked = {current_data[31:8],  cpu_wdata[7:0]};
-                2'b01: write_data_masked = {current_data[31:16], cpu_wdata[7:0], current_data[7:0]};
-                2'b10: write_data_masked = {current_data[31:24], cpu_wdata[7:0], current_data[15:0]};
-                2'b11: write_data_masked = {cpu_wdata[7:0],      current_data[23:0]};
-            endcase
-        end else begin
-            write_data_masked = cpu_wdata;
-        end
+        case (cpu_funct3)
+            3'b000: begin // SB - Store Byte
+                case (addr_offset[1:0])
+                    2'b00: write_data_masked = {current_data[31:8],  cpu_wdata[7:0]};
+                    2'b01: write_data_masked = {current_data[31:16], cpu_wdata[7:0], current_data[7:0]};
+                    2'b10: write_data_masked = {current_data[31:24], cpu_wdata[7:0], current_data[15:0]};
+                    2'b11: write_data_masked = {cpu_wdata[7:0],      current_data[23:0]};
+                endcase
+            end
+            3'b001: begin // SH - Store Halfword
+                case (addr_offset[1])
+                    1'b0: write_data_masked = {current_data[31:16], cpu_wdata[15:0]};
+                    1'b1: write_data_masked = {cpu_wdata[15:0], current_data[15:0]};
+                endcase
+            end
+            3'b010: begin // SW - Store Word
+                write_data_masked = cpu_wdata;
+            end
+            default: begin
+                write_data_masked = cpu_wdata;
+            end
+        endcase
     end
 
 // Cache controller FSM
@@ -234,16 +272,28 @@ module data_cache (
                         
                         resp_current_data = data_array[victim_way][shadow_index][shadow_word_offset];
                         
-                        if (shadow_funct3 == 3'b000) begin // SB
-                            case (shadow_offset[1:0])
-                                2'b00: resp_write_data = {resp_current_data[31:8],  shadow_wdata[7:0]};
-                                2'b01: resp_write_data = {resp_current_data[31:16], shadow_wdata[7:0], resp_current_data[7:0]};
-                                2'b10: resp_write_data = {resp_current_data[31:24], shadow_wdata[7:0], resp_current_data[15:0]};
-                                2'b11: resp_write_data = {shadow_wdata[7:0], resp_current_data[23:0]};
-                            endcase
-                        end else begin
-                            resp_write_data = shadow_wdata;
-                        end
+                        case (shadow_funct3)
+                            3'b000: begin // SB - Store Byte
+                                case (shadow_offset[1:0])
+                                    2'b00: resp_write_data = {resp_current_data[31:8],  shadow_wdata[7:0]};
+                                    2'b01: resp_write_data = {resp_current_data[31:16], shadow_wdata[7:0], resp_current_data[7:0]};
+                                    2'b10: resp_write_data = {resp_current_data[31:24], shadow_wdata[7:0], resp_current_data[15:0]};
+                                    2'b11: resp_write_data = {shadow_wdata[7:0], resp_current_data[23:0]};
+                                endcase
+                            end
+                            3'b001: begin // SH - Store Halfword
+                                case (shadow_offset[1])
+                                    1'b0: resp_write_data = {resp_current_data[31:16], shadow_wdata[15:0]};
+                                    1'b1: resp_write_data = {shadow_wdata[15:0], resp_current_data[15:0]};
+                                endcase
+                            end
+                            3'b010: begin // SW - Store Word
+                                resp_write_data = shadow_wdata;
+                            end
+                            default: begin
+                                resp_write_data = shadow_wdata;
+                            end
+                        endcase
                         
                         data_array[victim_way][shadow_index][shadow_word_offset] <= resp_write_data;
                         dirty_array[victim_way][shadow_index] <= 1'b1;
@@ -352,16 +402,42 @@ module data_cache (
             logic [31:0] resp_sized;
             resp_data = data_array[victim_way][shadow_index][shadow_word_offset];
             
-            if (shadow_funct3 == 3'b100) begin
-                case (shadow_offset[1:0])
-                    2'b00: resp_sized = {24'b0, resp_data[7:0]};
-                    2'b01: resp_sized = {24'b0, resp_data[15:8]};
-                    2'b10: resp_sized = {24'b0, resp_data[23:16]};
-                    2'b11: resp_sized = {24'b0, resp_data[31:24]};
-                endcase
-            end else begin
-                resp_sized = resp_data;
-            end
+            case (shadow_funct3)
+                3'b000: begin // LB - Load Byte (sign-extended)
+                    case (shadow_offset[1:0])
+                        2'b00: resp_sized = {{24{resp_data[7]}}, resp_data[7:0]};
+                        2'b01: resp_sized = {{24{resp_data[15]}}, resp_data[15:8]};
+                        2'b10: resp_sized = {{24{resp_data[23]}}, resp_data[23:16]};
+                        2'b11: resp_sized = {{24{resp_data[31]}}, resp_data[31:24]};
+                    endcase
+                end
+                3'b001: begin // LH - Load Halfword (sign-extended)
+                    case (shadow_offset[1])
+                        1'b0: resp_sized = {{16{resp_data[15]}}, resp_data[15:0]};
+                        1'b1: resp_sized = {{16{resp_data[31]}}, resp_data[31:16]};
+                    endcase
+                end
+                3'b010: begin // LW - Load Word
+                    resp_sized = resp_data;
+                end
+                3'b100: begin // LBU - Load Byte Unsigned
+                    case (shadow_offset[1:0])
+                        2'b00: resp_sized = {24'b0, resp_data[7:0]};
+                        2'b01: resp_sized = {24'b0, resp_data[15:8]};
+                        2'b10: resp_sized = {24'b0, resp_data[23:16]};
+                        2'b11: resp_sized = {24'b0, resp_data[31:24]};
+                    endcase
+                end
+                3'b101: begin // LHU - Load Halfword Unsigned
+                    case (shadow_offset[1])
+                        1'b0: resp_sized = {16'b0, resp_data[15:0]};
+                        1'b1: resp_sized = {16'b0, resp_data[31:16]};
+                    endcase
+                end
+                default: begin
+                    resp_sized = resp_data;
+                end
+            endcase
             
             cpu_rdata = resp_sized;
         end
