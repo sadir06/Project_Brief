@@ -159,29 +159,89 @@ always_comb begin
         end
 
         
-        //Load: lbu
+        //Load: LB, LH, LW, LBU, LHU
         OPC_LOAD: begin
-            if (funct3 == 3'b100) begin
-                RegWrite   = 1'b1;
-                MemWrite   = 1'b0;
-                MemRead    = 1'b1;    // read memory
-                ALUSrc     = 1'b1;      // base + offset
-                ImmSrc     = 3'b000;    
-                ResultSrc  = RES_MEM;   // data from memory
-                ALUControl = ALU_ADD;   // address = rs1 + imm
+            unique case (funct3)
+                3'b000: begin // LB - Load Byte (sign-extended)
+                    RegWrite   = 1'b1;
+                    MemWrite   = 1'b0;
+                    MemRead    = 1'b1;
+                    ALUSrc     = 1'b1;
+                    ImmSrc     = 3'b000;
+                    ResultSrc  = RES_MEM;
+                    ALUControl = ALU_ADD;
                 end
-            end
+                3'b001: begin // LH - Load Halfword (sign-extended)
+                    RegWrite   = 1'b1;
+                    MemWrite   = 1'b0;
+                    MemRead    = 1'b1;
+                    ALUSrc     = 1'b1;
+                    ImmSrc     = 3'b000;
+                    ResultSrc  = RES_MEM;
+                    ALUControl = ALU_ADD;
+                end
+                3'b010: begin // LW - Load Word
+                    RegWrite   = 1'b1;
+                    MemWrite   = 1'b0;
+                    MemRead    = 1'b1;
+                    ALUSrc     = 1'b1;
+                    ImmSrc     = 3'b000;
+                    ResultSrc  = RES_MEM;
+                    ALUControl = ALU_ADD;
+                end
+                3'b100: begin // LBU - Load Byte Unsigned
+                    RegWrite   = 1'b1;
+                    MemWrite   = 1'b0;
+                    MemRead    = 1'b1;    // read memory
+                    ALUSrc     = 1'b1;      // base + offset
+                    ImmSrc     = 3'b000;    
+                    ResultSrc  = RES_MEM;   // data from memory
+                    ALUControl = ALU_ADD;   // address = rs1 + imm
+                end
+                3'b101: begin // LHU - Load Halfword Unsigned
+                    RegWrite   = 1'b1;
+                    MemWrite   = 1'b0;
+                    MemRead    = 1'b1;
+                    ALUSrc     = 1'b1;
+                    ImmSrc     = 3'b000;
+                    ResultSrc  = RES_MEM;
+                    ALUControl = ALU_ADD;
+                end
+                default: begin
+                    // Invalid funct3 for load, treat as NOP
+                end
+            endcase
+        end
             
-        //Store: sb
+        //Store: SB, SH, SW
         OPC_STORE: begin
-            if (funct3 == 3'b000) begin
-                RegWrite   = 1'b0;
-                MemWrite   = 1'b1;      // write memory no read form memory now
-                ALUSrc     = 1'b1;      // base + offset
-                ImmSrc     = 3'b001;    
-                ALUControl = ALU_ADD; 
+            unique case (funct3)
+                3'b000: begin // SB - Store Byte
+                    RegWrite   = 1'b0;
+                    MemWrite   = 1'b1;      // write memory no read form memory now
+                    ALUSrc     = 1'b1;      // base + offset
+                    ImmSrc     = 3'b001;    
+                    ALUControl = ALU_ADD;
                 end
-            end
+                3'b001: begin // SH - Store Halfword
+                    RegWrite   = 1'b0;
+                    MemWrite   = 1'b1;
+                    ALUSrc     = 1'b1;
+                    ImmSrc     = 3'b001;
+                    ALUControl = ALU_ADD;
+                end
+                3'b010: begin // SW - Store Word
+                    RegWrite   = 1'b0;
+                    MemWrite   = 1'b1;
+                    ALUSrc     = 1'b1;
+                    ImmSrc     = 3'b001;
+                    ALUControl = ALU_ADD;
+                end
+                default: begin
+                    // Invalid funct3 for store, treat as NOP
+                end
+            endcase
+        end
 
         //U-type: lui
         OPC_LUI: begin
