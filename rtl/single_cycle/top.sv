@@ -25,6 +25,7 @@ module top (
     logic [1:0]  ResultSrc;
     logic [3:0]  ALUControl; // changed to 4 bits for full rv32i design
     logic        Zero;
+    logic       MemRead;
     
     // PC logic signals
     logic [31:0] PCPlus4;
@@ -61,6 +62,7 @@ module top (
         .funct7(funct7),
         .RegWrite(RegWrite),
         .MemWrite(MemWrite),
+        .MemRead  (MemRead),
         .ALUSrc(ALUSrc),
         .Branch(Branch),
         .Jump(Jump),
