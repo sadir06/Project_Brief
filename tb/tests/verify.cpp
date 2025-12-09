@@ -51,7 +51,7 @@ TEST_F(CpuTestbench, TestCacheHit)
     setupTest("8_cache_hit");
     initSimulation();
     runSimulation(CYCLES);
-    EXPECT_EQ(top_->a0, 126);  // Expected result
+    EXPECT_EQ(top_->a0, 126);
 }
 
 TEST_F(CpuTestbench, TestCacheMissSetConflict)
@@ -59,8 +59,57 @@ TEST_F(CpuTestbench, TestCacheMissSetConflict)
     setupTest("9_cache_miss_set_conflict");
     initSimulation();
     runSimulation(CYCLES);
-    EXPECT_EQ(top_->a0, 300);  // Expected result
+    EXPECT_EQ(top_->a0, 300);
 }
+
+TEST_F(CpuTestbench, TestMemoryOffsets)
+{
+    setupTest("10_memory_offsets");
+    initSimulation();
+    runSimulation(CYCLES);
+    EXPECT_EQ(top_->a0, 100);
+}
+
+TEST_F(CpuTestbench, TestBitwise)
+{
+    setupTest("11_bitwise");
+    initSimulation();
+    runSimulation(CYCLES);
+    EXPECT_EQ(top_->a0, 28);
+}
+
+TEST_F(CpuTestbench, TestShifts)
+{
+    setupTest("12_shifts");
+    initSimulation();
+    runSimulation(CYCLES);
+    EXPECT_EQ(top_->a0, 200);
+}
+
+TEST_F(CpuTestbench, TestStoreHalfwords)
+{
+    setupTest("13_store_halfwords");
+    initSimulation();
+    runSimulation(CYCLES);
+    EXPECT_EQ(top_->a0, 300);
+}
+
+TEST_F(CpuTestbench, TestBranches)
+{
+    setupTest("14_branches");
+    initSimulation();
+    runSimulation(CYCLES);
+    EXPECT_EQ(top_->a0, 6);
+}
+
+TEST_F(CpuTestbench, TestComparisons)
+{
+    setupTest("15_comparisons");
+    initSimulation();
+    runSimulation(CYCLES);
+    EXPECT_EQ(top_->a0, 2);
+}
+
 
 int main(int argc, char **argv)
 {
