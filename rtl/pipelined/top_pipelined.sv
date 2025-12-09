@@ -36,7 +36,7 @@ module top_pipelined (
     logic        JalrD;
     logic        ALUSrcD;
     logic [1:0]  ResultSrcD;
-    logic [2:0]  ALUControlD;
+    logic [3:0]  ALUControlD;
     logic [2:0]  ImmSrcD;
     
     //ID/EX Pipeline Register Signals
@@ -57,7 +57,7 @@ module top_pipelined (
     logic        JalrE;
     logic        ALUSrcE;
     logic [1:0]  ResultSrcE;
-    logic [2:0]  ALUControlE;
+    logic [3:0]  ALUControlE;
     
     // EX Stage Signals 
     logic [31:0] ALUResultE;         
@@ -282,7 +282,8 @@ module top_pipelined (
         .ALUResultE(ALUResultE),
         .WriteDataE(WriteDataE),
         .PCTargetE(PCTargetE),
-        .cond_trueE(cond_trueE)
+        .cond_trueE(cond_trueE),
+        .funct3E(funct3E)
     );
     
     

@@ -21,11 +21,13 @@ module execute (
     // Forwarding Data 
     input logic [31:0]    ALUResultM, // Data forwarded from Memory Stage
     input logic [31:0]    ResultW,    // Data forwarded from Writeback Stage
+    input logic [2:0]       funct3E,
 
     // Outputs to Ex/MEM Register
     output logic [31:0]   ALUResultE, // The calculation result
     output logic [31:0]   WriteDataE, // The data to store in memory (forwarded rs2)
     output logic [31:0]   PCTargetE, // Calulated Branch Target
+
 
     // Output to Hazard Unit
     output logic         cond_trueE // High if branch condition is met
@@ -96,6 +98,7 @@ module execute (
             3'b101: cond_trueE = ~ALUResultE[0]; // BGE (Result=0 from SLT)
             3'b110: cond_trueE = ALUResultE[0];  // BLTU (Result=1 from SLTU)
             3'b111: cond_trueE = ~ALUResultE[0]; // BGEU (Result=0 from SLTU)
+            default: cond_trueE = 1'b0;
         endcase
     end
 
