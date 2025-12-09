@@ -252,7 +252,7 @@ always_comb begin
             ALUControl = ALU_PASS_B;
          end
 
-        //Branches: bne, bgeu
+        //Branches: all types
         OPC_BRANCH: begin
             RegWrite   = 1'b0;
             MemWrite   = 1'b0;
@@ -260,17 +260,29 @@ always_comb begin
             Branch     = 1'b1; 
             ImmSrc     = 3'b010;
             unique case (funct3)
+                3'b000: begin // BEQ
+                    ALUControl = ALU_SUB;   
+                end
                 3'b001: begin // BNE
                     ALUControl = ALU_SUB;   // Zero==0 => taken
-                    end
-                3'b111: begin //BGEU
+                end
+                3'b100: begin // BLT (signed less than)
+                    ALUControl = ALU_SLT;
+                end
+                3'b101: begin // BGE (signed greater or equal)
+                    ALUControl = ALU_SLT;
+                end
+                3'b110: begin // BLTU (unsigned less than)
+                    ALUControl = ALU_SLTU;
+                end
+                3'b111: begin // BGEU (unsigned greater or equal)
                     ALUControl = ALU_SLTU;  // result = (rs1<rs2); Zero==1 => taken
-                    end
-                default: begin //treat as NOP
-                    Branch     = 1'b0;
-                    end
-                endcase
-            end
+                end
+                default: begin
+                    Branch = 1'b0;
+                end
+            endcase
+        end
 
         
         //JALR (used for RET)

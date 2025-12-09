@@ -11,7 +11,7 @@ module datapath (
     input logic        RegWrite, // Register File Write Enable
     input logic [1:0]  ResultSrc, // 00=ALU, 01=Mem, 10=PC+4
     input logic        ALUSrc,   // 0=Reg, 1=Imm
-    input logic [2:0]  ALUControl, 
+    input logic [3:0]  ALUControl, // changed to 4 bits for full rv32i design
     input logic [2:0]  ImmSrc,
 
     //Outputs

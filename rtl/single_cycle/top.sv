@@ -23,7 +23,7 @@ module top (
     logic        Jalr;
     logic [2:0]  ImmSrc;
     logic [1:0]  ResultSrc;
-    logic [2:0]  ALUControl;
+    logic [3:0]  ALUControl; // changed to 4 bits for full rv32i design
     logic        Zero;
     
     // PC logic signals
@@ -112,13 +112,15 @@ module top (
     assign PCTarget = PC + ImmExt;
     
     // Branch decision logic
-    // For BNE: take branch if Zero == 0 (not equal)
-    // For BGEU: take branch if Zero == 1 (rs1 >= rs2, i.e., not less than)
     logic BranchTaken;
     always_comb begin
         case (funct3)
-            3'b001: BranchTaken = Branch && !Zero;  // BNE: taken if not equal
-            3'b111: BranchTaken = Branch && Zero;   // BGEU: taken if rs1 >= rs2
+            3'b000: BranchTaken = Branch && Zero;       // BEQ: taken if equal
+            3'b001: BranchTaken = Branch && !Zero;      // BNE: taken if not equal
+            3'b100: BranchTaken = Branch && ALUResult[0];   // BLT: taken if less than (signed)
+            3'b101: BranchTaken = Branch && !ALUResult[0];  // BGE: taken if greater than or equal to (signed)
+            3'b110: BranchTaken = Branch && ALUResult[0];   // BLTU: taken if less than (unsigned)
+            3'b111: BranchTaken = Branch && !ALUResult[0];  // BGEU: taken if greater than or equal to (unsigned)
             default: BranchTaken = 1'b0;
         endcase
     end
