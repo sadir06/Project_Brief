@@ -13,7 +13,7 @@ module id_ex_reg (
     input  logic        JalrD,
     input  logic        ALUSrcD,
     input  logic [1:0]  ResultSrcD,
-    input  logic [2:0]  ALUControlD,
+    input  logic [3:0]  ALUControlD,
     
     // Data signals from ID stage
     input  logic [31:0] pcD,           // PC value
@@ -35,7 +35,7 @@ module id_ex_reg (
     output logic        JalrE,
     output logic        ALUSrcE,
     output logic [1:0]  ResultSrcE,
-    output logic [2:0]  ALUControlE,
+    output logic [3:0]  ALUControlE,
     
     // Data outputs to EX stage
     output logic [31:0] pcE,
@@ -60,7 +60,7 @@ module id_ex_reg (
             JalrE        <= 1'b0;
             ALUSrcE      <= 1'b0;
             ResultSrcE   <= 2'b00;
-            ALUControlE  <= 3'b000;
+            ALUControlE  <= 4'b000;
             
             pcE          <= 32'b0;
             rs1_dataE    <= 32'b0;
@@ -83,7 +83,7 @@ module id_ex_reg (
             JalrE        <= 1'b0;
             ALUSrcE      <= 1'b0;
             ResultSrcE   <= 2'b00;
-            ALUControlE  <= 3'b000;
+            ALUControlE  <= 4'b000;
             
             // Zero rdE to prevent forwarding from flushed instruction
             rdE          <= 5'b0;
