@@ -29,7 +29,6 @@ module hazard_unit (
     logic load_use_hazard;
     logic branch_takenE;
 
-    assign branch_takenE = (BranchE & cond_trueE) | JumpE | JalrE;
 
     always_comb begin
         // default: no stall, no flush
