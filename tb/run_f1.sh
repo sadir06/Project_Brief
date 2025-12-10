@@ -16,17 +16,17 @@ fi
 # Clean up any previous obj_dir
 rm -rf obj_dir/
 rm -rf test_out/obj_dir/
-rm -rf test_out/7_f1_lights_other/obj_dir/
+rm -rf test_out/6_f1_lights/obj_dir/
 
 # Assemble the code
-./assemble.sh asm/7_f1_lights_other.s
+./assemble.sh asm/6_f1_lights.s
 
 # Create empty data memory file since memory module expects data.hex
-touch test_out/7_f1_lights_other/data.hex
+touch test_out/6_f1_lights/data.hex
 
 # Copy hex files for verilator
-cp test_out/7_f1_lights_other/program.hex ./program.hex
-cp test_out/7_f1_lights_other/data.hex ./data.hex
+cp test_out/6_f1_lights/program.hex ./program.hex
+cp test_out/6_f1_lights/data.hex ./data.hex
 
 # Set top module path based on CPU type
 if [[ "$CPU_TYPE" == "pipelined" ]]; then
@@ -54,7 +54,7 @@ make -j -C obj_dir/ -f Vdut.mk Vdut
 ./obj_dir/Vdut
 
 # Move waveform and obj_dir to test directory
-mv f1_lights.vcd test_out/7_f1_lights_other/waveform_${CPU_TYPE}.vcd 2>/dev/null
+mv f1_lights.vcd test_out/6_f1_lights/waveform_${CPU_TYPE}.vcd 2>/dev/null
 mv obj_dir test_out/obj_dir_${CPU_TYPE}
 
 # Clean up
