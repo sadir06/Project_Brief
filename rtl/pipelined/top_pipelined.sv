@@ -16,7 +16,9 @@ module top_pipelined (
     
     //IF/ID Pipeline Register Signals 
     logic [31:0] pcD;                
-    logic [31:0] instrD;          
+    logic [31:0] instrD;    
+    logic [31:0] PCPlus4D;
+      
     
     // ID Stage Signals 
     logic [31:0] rs1_dataD;          
@@ -145,8 +147,8 @@ module top_pipelined (
     );
     
 
-    // IF/ID Pipeline Register
     
+        // IF/ID Pipeline Register
     if_id_reg if_id_reg_inst (
         .clk(clk),
         .rst(rst),
@@ -157,8 +159,10 @@ module top_pipelined (
         .pcD(pcD),
         .instrD(instrD)
     );
-    
-    
+
+    // PC+4 for the instruction currently in ID
+    assign PCPlus4D = pcD + 32'd4;
+
     
     // ID STAGE - Instruction Decode
 
@@ -235,8 +239,8 @@ module top_pipelined (
         .rdD(rdD),
         .rs1_addrD(rs1_addrD),
         .rs2_addrD(rs2_addrD),
-        .funct3D(funct3D),      // Pass funct3 through pipeline
-        .PCPlus4D(PCPlus4F),
+        .funct3D(funct3D),
+        .PCPlus4D(PCPlus4D),
         
         // Control outputs
         .RegWriteE(RegWriteE),
