@@ -235,7 +235,8 @@ module top_pipelined (
         .rdD(rdD),
         .rs1_addrD(rs1_addrD),
         .rs2_addrD(rs2_addrD),
-        .funct3D(funct3D),       // Pass funct3 through pipeline
+        .funct3D(funct3D),      // Pass funct3 through pipeline
+        .PCPlus4D(PCPlus4F),
         
         // Control outputs
         .RegWriteE(RegWriteE),
@@ -256,19 +257,17 @@ module top_pipelined (
         .rdE(rdE),
         .rs1_addrE(rs1_addrE),
         .rs2_addrE(rs2_addrE),
-        .funct3E(funct3E)        // Output funct3
+        .funct3E(funct3E),       // Output funct3
+        .PCPlus4E(PCPlus4E) 
     );
     
     
     
     // EX STAGE - Execute
     
-    // PC + 4 for JAL/JALR
-    assign PCPlus4E = pcE + 32'd4;
     
     // Execute module (includes ALU, forwarding muxes, and branch condition logic)
     execute execute_inst (
-        .clk(clk),
         .ALUSrcE(ALUSrcE),
         .ALUControlE(ALUControlE),
         .rs1_dataE(rs1_dataE),
