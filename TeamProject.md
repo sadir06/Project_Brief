@@ -273,6 +273,20 @@ rtl/
 
 This is our final and most complete design. Here we extended the instruction set to include all RV32I ALU, load/store, branch, and shift operations, and we fixed all pipeline/control/cache interactions until every test case passed. This branch represents the culmination of all architectural, verification, and debugging work.
 
+## Stretch goal 4: Branch Target Buffer (BTB)
+
+As a performance enhancement beyond the baseline requirements, we integrated a **Branch Target Buffer (BTB)** for dynamic branch prediction. This addition significantly reduces control hazard penalties by allowing the pipeline to speculatively fetch from predicted branch targets.
+
+**BTB Design:** The BTB is implemented as a 64-entry direct-mapped structure (`btb.sv`) that stores predicted branch targets. Each entry contains a valid bit, a 1-bit prediction (taken/not taken), a tag field (PC[31:8]), and the predicted target address. The BTB is indexed using PC bits [7:2], providing efficient lookup in a single cycle.
+
+**Pipeline Integration:** During instruction fetch (IF stage), the current PC is used to perform a BTB lookup. If a hit occurs, the predicted target address is immediately used as the next PC, allowing the pipeline to fetch from the predicted address without waiting for branch resolution in the execute stage. The BTB prediction signals are passed through the IF/ID and ID/EX pipeline registers to reach the EX stage for comparison with actual branch outcomes.
+
+**Misprediction Handling:** The hazard unit was modified to only flush the pipeline on mispredictions, not on all taken branches. A misprediction is detected when: (1) the branch was predicted taken but not taken, (2) the branch was predicted not taken but taken, or (3) the predicted target doesn't match the actual target. Correctly predicted branches incur zero penalty cycles (versus the previous 2-cycle penalty), while mispredictions still incur a 2-cycle flush penalty.
+
+**Dynamic Learning:** The BTB updates dynamically when branches resolve in the EX stage. Taken branches store their target address and set the prediction to taken for future executions. Not-taken branches update their prediction state to not taken. This adaptive mechanism allows the BTB to learn branch behavior patterns and improve prediction accuracy over time.
+
+**Performance Impact:** This enhancement provides significant performance improvements on branch-heavy workloads by reducing control hazard penalties. For typical workloads with good branch locality, this can provide 10-30% performance improvement by eliminating pipeline stalls on correctly predicted branches.
+
 ## Our design decision:
 
 ![](images/final.png)
