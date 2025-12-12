@@ -2,28 +2,39 @@
 
 [add names of your teammates]
 
-# Table of contents:
+# Table of Contents
 
-- [Quick Start](#quick-start)
 - [Overview](#overview)
+    - [Overall Repo Structure](#overall-repo-structure)
 - [Key Features & Achievements](#key-features--achievements)
+    - [Top Level Contributions](#top-level-contributions)
+    - [Team Members and Statements](#team-members-and-statements)
 - [Repo Structure](#repo-structure)
     - [Single Cycle RV32I Implementation](#single-cycle-rv32i-implementation)
-    - [Stretch goal 1: Pipelined RV32I Implementation](#stretch-goal-1-pipelined-rv32i-implementation)
-    - [Stretch goal 2: Memory Cached Pipelined RV32I](#stretch-goal-2-memory-cached-pipelined-rv32i)
-    - [Stretch goal 3: Full Instruction Set](#stretch-goal-3-full-instruction-set)
-    - [Our design decision](#our-design-decision)
+    - [Stretch Goal 1: Pipelined RV32I Implementation](#stretch-goal-1-pipelined-rv32i-implementation)
+    - [Stretch Goal 2: Memory Cached Pipelined RV32I](#stretch-goal-2-memory-cached-pipelined-rv32i)
+    - [Stretch Goal 3: Full Instruction Set](#stretch-goal-3-full-instruction-set)
+    - [Stretch Goal 4: Branch Target Buffer (BTB)](#stretch-goal-4-branch-target-buffer-btb)
+    - [Our Design Decision](#our-design-decision)
 - [Verification & Testing](#verification--testing)
-- [Running](#running)
-    - [single cycle](#single-cycle)
-    - [pipelined](#pipelined)
+    - [Test Suite Overview](#test-suite-overview)
+- [Testing Methodology](#testing-methodology)
+     - [Automated Testing](#automated-testing)
+    - [Visual Verification with VBuddy](#visual-verification-with-vbuddy)
+    - [PDF (Probability Density Function)](#pdf-probability-density-function)
+    - [Waveform Analysis](#waveform-analysis)  
+    - [Viewing Waveforms](#viewing-waveforms) 
+- [Design Challenges & Solutions](#design-challenges--solutions)
+    - [Cache Integration](#cache-integration)
+    - [Pipeline Hazards](#pipeline-hazards)
+    - [Testing Strategy](#testing-strategy)
 
 ---
 # Overview
 
 This repository contains our team’s complete implementation of an RV32I processor, developed progressively across several milestones and maintained across multiple branches for clarity and traceability. The project began with a fully working single-cycle CPU that implemented the core RV32I instruction subset. Building on this foundation, we extended the design into a five-stage pipelined processor that supported complete forwarding and hazard-detection logic, enabling correct resolution of data hazards, load–use dependencies, and control-flow changes due to branches and jumps. The final stage of development introduced a realistic 4 KiB, two-way set-associative write-back data cache, bringing the design closer to modern processor memory hierarchies by supporting tag checks across both ways, dirty and valid tracking, LRU replacement, and multi-cycle miss handling integrated with the pipeline’s stall signals.
 
-## Repo Structure
+## Overall Repo Structure 
 
 We successfully completed the Single-Cycle CPU implementation and all stretch goals: Pipelined processor, Two-Way Set Associative Write-Back Cache, and Full RV32I Design. Our implementations are organized across multiple branches for clarity:
 
