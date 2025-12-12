@@ -27,7 +27,7 @@ module id_ex_reg (
     input  logic [2:0]  funct3D,       // Function code for memory ops
     input  logic [31:0] PCPlus4D,      // PC+4 from IF stage
     input  logic        btb_hitD,      // BTB prediction from IF stage
-    input  logic [31:0] btb_targetD   // Predicted target from IF stage
+    input  logic [31:0] btb_targetD,   // Predicted target from IF stage
     
     // Control outputs to EX stage
     output logic        RegWriteE,
