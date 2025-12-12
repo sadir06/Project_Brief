@@ -19,9 +19,6 @@ module top_pipelined (
     logic [31:0] pcD;                
     logic [31:0] instrD;    
     logic [31:0] PCPlus4D;
-    logic        btb_hitD;           // BTB prediction from IF stage
-    logic        btb_predict_takenD; // BTB prediction bit in ID stage
-    logic [31:0] btb_targetD;        // Predicted target from IF stage
       
     
     // ID Stage Signals 
@@ -66,9 +63,6 @@ module top_pipelined (
     logic        ALUSrcAE;    // ALU source A select (EX stage) - for AUIPC
     logic [1:0]  ResultSrcE;
     logic [3:0]  ALUControlE;
-    logic        btb_hitE;    // BTB prediction in EX stage
-    logic        btb_predict_takenE; // BTB prediction bit in EX stage
-    logic [31:0] btb_targetE; // Predicted target in EX stage
     
     // EX Stage Signals 
     logic [31:0] ALUResultE;         
@@ -77,11 +71,6 @@ module top_pipelined (
     logic [31:0] PCPlus4E;           
     logic [31:0] PCJalrE;            
     logic        cond_trueE;         
-    
-    // Branch prediction signals
-    logic        branch_takenE;       // Branch was actually taken
-    logic        branch_mispredictE;  // Prediction was wrong
-    logic        branch_resolvedE;    // Branch resolved (for BTB update)
     
     // Forwarding control signals
     logic [1:0]  ForwardAE;
@@ -127,11 +116,6 @@ module top_pipelined (
     logic        IF_ID_Flush;        
     logic        ID_EX_Flush;        
     
-    // Branch Prediction (BTB) Signals
-    logic        btb_hitF;           // BTB hit in IF stage
-    logic        btb_predict_takenF; // BTB prediction: 1=taken, 0=not taken
-    logic [31:0] btb_targetF;        // Predicted target from BTB
-    
     // IF STAGE - Instruction Fetch
     
     pc_reg_pipe pc_reg_inst (
@@ -145,36 +129,18 @@ module top_pipelined (
 
     assign PCPlus4F = pcF + 32'd4;
     
-    // PC next logic with branch prediction
-    // Priority: JALR/JAL/Branch (EX stage correction) > BTB prediction > Normal (PC+4)
-    // EX stage corrections take priority because they are the actual resolved outcomes
-    // BTB predictions are used when no EX stage branch is resolving
+    // PC next logic (handles branches, jumps, and JALR)
     assign PCJalrE = {ALUResultE[31:1], 1'b0};  
     
     always_comb begin
-        if (JalrE) begin
-            // JALR: always use computed target (can't predict easily)
-            pc_next = PCJalrE;
-        end
-        else if (BranchE && cond_trueE) begin
-            // Branch taken: use computed target (correction from EX stage)
-            // This handles: 1) mispredictions, 2) first-time branches not in BTB
-            pc_next = PCTargetE;
-        end
-        else if (JumpE) begin
-            // JAL taken: use computed target (correction from EX stage)
-            // This handles: 1) mispredictions, 2) first-time JAL not in BTB
-            pc_next = PCTargetE;
-        end
-        else if (btb_hitF && btb_predict_takenF) begin
-            // BTB predicts taken: use predicted target (for branches and JAL not currently resolving in EX)
-            // This allows us to fetch from predicted target immediately
-            pc_next = btb_targetF;
-        end
-        else begin
-            // Normal: PC = PC + 4 (predict not taken for branches not in BTB)
-            pc_next = PCPlus4F;
-        end
+        if (JalrE)
+            pc_next = PCJalrE;               // JALR: jump to (rs1+imm) & ~1
+        else if (BranchE && cond_trueE)
+            pc_next = PCTargetE;             // Branch taken: jump to PC+imm
+        else if (JumpE)
+            pc_next = PCTargetE;             // JAL: jump to PC+imm
+        else
+            pc_next = PCPlus4F;              // Normal: PC = PC + 4
     end
     
     // Instruction Memory
@@ -183,19 +149,6 @@ module top_pipelined (
         .instr_o(instrF)
     );
     
-    // Branch Target Buffer (BTB)
-    btb btb_inst (
-        .clk(clk),
-        .rst(rst),
-        .pc_lookup(pcF),              // Look up current PC in IF stage
-        .btb_hit(btb_hitF),          // BTB has prediction for this PC
-        .btb_predict_taken(btb_predict_takenF), // BTB prediction: 1=taken, 0=not taken
-        .btb_target(btb_targetF),    // Predicted target address
-        .update_en(branch_resolvedE), // Update when branch resolves in EX
-        .pc_update(pcE),             // PC of branch being resolved
-        .actual_target(PCTargetE),    // Actual target (if taken)
-        .actual_taken(branch_takenE) // Was branch actually taken?
-    );
 
     
         // IF/ID Pipeline Register
@@ -206,14 +159,8 @@ module top_pipelined (
         .flush(IF_ID_Flush),
         .pcF(pcF),
         .instrF(instrF),
-        .btb_hitF(btb_hitF),
-        .btb_predict_takenF(btb_predict_takenF),
-        .btb_targetF(btb_targetF),
         .pcD(pcD),
-        .instrD(instrD),
-        .btb_hitD(btb_hitD),
-        .btb_predict_takenD(btb_predict_takenD),
-        .btb_targetD(btb_targetD)
+        .instrD(instrD)
     );
 
     // PC+4 for the instruction currently in ID
@@ -299,9 +246,6 @@ module top_pipelined (
         .rs2_addrD(rs2_addrD),
         .funct3D(funct3D),
         .PCPlus4D(PCPlus4D),
-        .btb_hitD(btb_hitD),
-        .btb_predict_takenD(btb_predict_takenD),
-        .btb_targetD(btb_targetD),
         
         // Control outputs
         .RegWriteE(RegWriteE),
@@ -324,10 +268,7 @@ module top_pipelined (
         .rs1_addrE(rs1_addrE),
         .rs2_addrE(rs2_addrE),
         .funct3E(funct3E),       // Output funct3
-        .PCPlus4E(PCPlus4E),
-        .btb_hitE(btb_hitE),
-        .btb_predict_takenE(btb_predict_takenE),
-        .btb_targetE(btb_targetE)
+        .PCPlus4E(PCPlus4E) 
     );
     
     
@@ -355,23 +296,6 @@ module top_pipelined (
         .funct3E(funct3E)
     );
     
-    // Branch prediction logic
-    // Determine if branch was actually taken
-    assign branch_takenE = (BranchE && cond_trueE) | JumpE | JalrE;
-    
-    // Misprediction detection
-    // We mispredicted if:
-    //   - Predicted taken (btb_hitE && btb_predict_takenE) but branch not taken
-    //   - Predicted not taken (!btb_hitE || !btb_predict_takenE) but branch taken
-    //   - Predicted target (btb_targetE) doesn't match actual target (PCTargetE)
-    assign branch_mispredictE = (BranchE | JumpE) && (
-        (btb_hitE && btb_predict_takenE && !branch_takenE) ||  // Predicted taken, but not taken
-        ((!btb_hitE || !btb_predict_takenE) && branch_takenE) || // Predicted not taken, but taken
-        (btb_hitE && btb_predict_takenE && branch_takenE && (btb_targetE != PCTargetE))  // Wrong target
-    );
-    
-    // Update BTB when branch resolves (always update for branches/JAL, even if correct)
-    assign branch_resolvedE = (BranchE | JumpE) && !JalrE;  // Don't update for JALR (hard to predict)
     
     // EX/MEM Pipeline Register
 
@@ -477,7 +401,6 @@ module top_pipelined (
         .JalrE(JalrE),
         .cond_trueE(cond_trueE),
         .CacheStall (CacheStall),
-        .branch_mispredictE(branch_mispredictE),  // Add misprediction signal
         .PCWrite(PCWrite),
         .IF_ID_Write(IF_ID_Write),
         .IF_ID_Flush(IF_ID_Flush),

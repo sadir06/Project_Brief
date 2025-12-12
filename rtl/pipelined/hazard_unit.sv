@@ -1,7 +1,7 @@
 // Hazard detection + control unit
 // Handles:
 //   - load-use data hazards (stall + bubble)
-//   - control hazards (branch mispredictions) (flush)
+//   - control hazards (branch/jal/jalr taken in EX) (flush)
 
 module hazard_unit (
     // Decode stage
@@ -15,7 +15,6 @@ module hazard_unit (
     input  logic       JumpE,       // EX-stage is jal
     input  logic       JalrE,       // EX-stage is jalr
     input  logic       cond_trueE,  // branch condition result (for bne/bgeu)
-    input  logic       branch_mispredictE,  // Branch prediction was wrong
 
     // Cache stall signal (from MEM stage)
     input  logic       CacheStall,
@@ -28,6 +27,8 @@ module hazard_unit (
 );
 
     logic load_use_hazard;
+    logic branch_takenE;
+
 
     always_comb begin
         // default: no stall, no flush
@@ -37,6 +38,7 @@ module hazard_unit (
         ID_EX_Flush = 1'b0;
 
         load_use_hazard = 1'b0;
+        branch_takenE   = (BranchE & cond_trueE) | JumpE | JalrE;
 
         // 1. Cache stall (Freeze IF and ID, do NOT flush)
         if (CacheStall) begin
@@ -56,9 +58,8 @@ module hazard_unit (
                 ID_EX_Flush = 1'b1;
             end
 
-            // 3. Control hazard (only flush on mispredictions)
-            // If prediction was correct, no need to flush!
-            if (branch_mispredictE) begin
+            // 3. Control hazard (branch / jal / jalr taken) (flush younger instructions)
+            if (branch_takenE) begin
                 IF_ID_Flush = 1'b1;
                 ID_EX_Flush = 1'b1;
             end
