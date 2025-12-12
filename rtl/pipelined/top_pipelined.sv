@@ -20,6 +20,7 @@ module top_pipelined (
     logic [31:0] instrD;    
     logic [31:0] PCPlus4D;
     logic        btb_hitD;           // BTB prediction from IF stage
+    logic        btb_predict_takenD; // BTB prediction bit in ID stage
     logic [31:0] btb_targetD;        // Predicted target from IF stage
       
     
@@ -66,6 +67,7 @@ module top_pipelined (
     logic [1:0]  ResultSrcE;
     logic [3:0]  ALUControlE;
     logic        btb_hitE;    // BTB prediction in EX stage
+    logic        btb_predict_takenE; // BTB prediction bit in EX stage
     logic [31:0] btb_targetE; // Predicted target in EX stage
     
     // EX Stage Signals 
@@ -127,6 +129,7 @@ module top_pipelined (
     
     // Branch Prediction (BTB) Signals
     logic        btb_hitF;           // BTB hit in IF stage
+    logic        btb_predict_takenF; // BTB prediction: 1=taken, 0=not taken
     logic [31:0] btb_targetF;        // Predicted target from BTB
     
     // IF STAGE - Instruction Fetch
@@ -143,7 +146,9 @@ module top_pipelined (
     assign PCPlus4F = pcF + 32'd4;
     
     // PC next logic with branch prediction
-    // Priority: JALR > Branch prediction > JAL > Normal
+    // Priority: JALR/JAL/Branch (EX stage correction) > BTB prediction > Normal (PC+4)
+    // EX stage corrections take priority because they are the actual resolved outcomes
+    // BTB predictions are used when no EX stage branch is resolving
     assign PCJalrE = {ALUResultE[31:1], 1'b0};  
     
     always_comb begin
@@ -151,17 +156,23 @@ module top_pipelined (
             // JALR: always use computed target (can't predict easily)
             pc_next = PCJalrE;
         end
-        else if (btb_hitF) begin
-            // BTB has a prediction: use it (for branches and JAL)
+        else if (BranchE && cond_trueE) begin
+            // Branch taken: use computed target (correction from EX stage)
+            // This handles: 1) mispredictions, 2) first-time branches not in BTB
+            pc_next = PCTargetE;
+        end
+        else if (JumpE) begin
+            // JAL taken: use computed target (correction from EX stage)
+            // This handles: 1) mispredictions, 2) first-time JAL not in BTB
+            pc_next = PCTargetE;
+        end
+        else if (btb_hitF && btb_predict_takenF) begin
+            // BTB predicts taken: use predicted target (for branches and JAL not currently resolving in EX)
             // This allows us to fetch from predicted target immediately
             pc_next = btb_targetF;
         end
-        else if (JumpE) begin
-            // JAL: unconditional jump, but not in BTB yet
-            pc_next = PCTargetE;
-        end
         else begin
-            // Normal: PC = PC + 4
+            // Normal: PC = PC + 4 (predict not taken for branches not in BTB)
             pc_next = PCPlus4F;
         end
     end
@@ -178,6 +189,7 @@ module top_pipelined (
         .rst(rst),
         .pc_lookup(pcF),              // Look up current PC in IF stage
         .btb_hit(btb_hitF),          // BTB has prediction for this PC
+        .btb_predict_taken(btb_predict_takenF), // BTB prediction: 1=taken, 0=not taken
         .btb_target(btb_targetF),    // Predicted target address
         .update_en(branch_resolvedE), // Update when branch resolves in EX
         .pc_update(pcE),             // PC of branch being resolved
@@ -195,10 +207,12 @@ module top_pipelined (
         .pcF(pcF),
         .instrF(instrF),
         .btb_hitF(btb_hitF),
+        .btb_predict_takenF(btb_predict_takenF),
         .btb_targetF(btb_targetF),
         .pcD(pcD),
         .instrD(instrD),
         .btb_hitD(btb_hitD),
+        .btb_predict_takenD(btb_predict_takenD),
         .btb_targetD(btb_targetD)
     );
 
@@ -286,6 +300,7 @@ module top_pipelined (
         .funct3D(funct3D),
         .PCPlus4D(PCPlus4D),
         .btb_hitD(btb_hitD),
+        .btb_predict_takenD(btb_predict_takenD),
         .btb_targetD(btb_targetD),
         
         // Control outputs
@@ -311,6 +326,7 @@ module top_pipelined (
         .funct3E(funct3E),       // Output funct3
         .PCPlus4E(PCPlus4E),
         .btb_hitE(btb_hitE),
+        .btb_predict_takenE(btb_predict_takenE),
         .btb_targetE(btb_targetE)
     );
     
@@ -345,13 +361,13 @@ module top_pipelined (
     
     // Misprediction detection
     // We mispredicted if:
-    //   - Predicted taken (btb_hitE) but branch not taken
-    //   - Predicted not taken (!btb_hitE) but branch taken
+    //   - Predicted taken (btb_hitE && btb_predict_takenE) but branch not taken
+    //   - Predicted not taken (!btb_hitE || !btb_predict_takenE) but branch taken
     //   - Predicted target (btb_targetE) doesn't match actual target (PCTargetE)
     assign branch_mispredictE = (BranchE | JumpE) && (
-        (btb_hitE && !branch_takenE) ||                    // Predicted taken, but not taken
-        (!btb_hitE && branch_takenE) ||                     // Predicted not taken, but taken
-        (btb_hitE && branch_takenE && (btb_targetE != PCTargetE))  // Wrong target
+        (btb_hitE && btb_predict_takenE && !branch_takenE) ||  // Predicted taken, but not taken
+        ((!btb_hitE || !btb_predict_takenE) && branch_takenE) || // Predicted not taken, but taken
+        (btb_hitE && btb_predict_takenE && branch_takenE && (btb_targetE != PCTargetE))  // Wrong target
     );
     
     // Update BTB when branch resolves (always update for branches/JAL, even if correct)

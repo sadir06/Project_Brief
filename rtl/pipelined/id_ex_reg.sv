@@ -27,6 +27,7 @@ module id_ex_reg (
     input  logic [2:0]  funct3D,       // Function code for memory ops
     input  logic [31:0] PCPlus4D,      // PC+4 from IF stage
     input  logic        btb_hitD,      // BTB prediction from IF stage
+    input  logic        btb_predict_takenD, // BTB prediction: 1=taken, 0=not taken
     input  logic [31:0] btb_targetD,   // Predicted target from IF stage
     
     // Control outputs to EX stage
@@ -52,6 +53,7 @@ module id_ex_reg (
     output logic [2:0]  funct3E,
     output logic [31:0] PCPlus4E,
     output logic        btb_hitE,      // BTB prediction in EX stage
+    output logic        btb_predict_takenE, // BTB prediction in EX stage
     output logic [31:0] btb_targetE   // Predicted target in EX stage
 );
 
@@ -79,6 +81,7 @@ module id_ex_reg (
             funct3E      <= 3'b0;
             PCPlus4E     <= 32'b0;
             btb_hitE     <= 1'b0;
+            btb_predict_takenE <= 1'b0;
             btb_targetE  <= 32'b0;
         end 
         else if (flush) begin
@@ -110,6 +113,7 @@ module id_ex_reg (
             funct3E      <= funct3D;
             PCPlus4E     <= PCPlus4D;
             btb_hitE     <= 1'b0;
+            btb_predict_takenE <= 1'b0;
             btb_targetE  <= 32'b0;
         end 
         else if (!stall) begin
@@ -135,6 +139,7 @@ module id_ex_reg (
             funct3E      <= funct3D;
             PCPlus4E     <= PCPlus4D;
             btb_hitE     <= btb_hitD;
+            btb_predict_takenE <= btb_predict_takenD;
             btb_targetE  <= btb_targetD;
         end
     end

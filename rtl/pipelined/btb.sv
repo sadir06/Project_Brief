@@ -9,7 +9,8 @@ module btb (
     // Lookup port (used in IF stage)
     input  logic [31:0] pc_lookup,           // PC to look up
     output logic        btb_hit,             // 1 if BTB has entry for this PC
-    output logic [31:0] btb_target,          // Predicted target address
+    output logic        btb_predict_taken,   // 1 if BTB predicts taken, 0 if predicts not taken
+    output logic [31:0] btb_target           // Predicted target address
     
     // Update port (used in EX stage when branch resolves)
     input  logic        update_en,          // 1 to update BTB entry
@@ -49,12 +50,14 @@ module btb (
     // Lookup logic (combinational)
     always_comb begin
         btb_hit = 1'b0;
+        btb_predict_taken = 1'b0;
         btb_target = 32'b0;
         
         // Check if entry exists and tag matches
         if (btb_array[lookup_index].valid && 
             (btb_array[lookup_index].tag == lookup_tag)) begin
             btb_hit = 1'b1;
+            btb_predict_taken = btb_array[lookup_index].prediction;
             btb_target = btb_array[lookup_index].target;
         end
     end
