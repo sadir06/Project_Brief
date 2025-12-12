@@ -26,6 +26,8 @@ module id_ex_reg (
     input  logic [4:0]  rs2_addrD,     // Source register 2 address
     input  logic [2:0]  funct3D,       // Function code for memory ops
     input  logic [31:0] PCPlus4D,      // PC+4 from IF stage
+    input  logic        btb_hitD,      // BTB prediction from IF stage
+    input  logic [31:0] btb_targetD   // Predicted target from IF stage
     
     // Control outputs to EX stage
     output logic        RegWriteE,
@@ -48,7 +50,9 @@ module id_ex_reg (
     output logic [4:0]  rs1_addrE,
     output logic [4:0]  rs2_addrE,
     output logic [2:0]  funct3E,
-    output logic [31:0] PCPlus4E
+    output logic [31:0] PCPlus4E,
+    output logic        btb_hitE,      // BTB prediction in EX stage
+    output logic [31:0] btb_targetE   // Predicted target in EX stage
 );
 
     always_ff @(negedge clk or posedge rst) begin
@@ -74,6 +78,8 @@ module id_ex_reg (
             rs2_addrE    <= 5'b0;
             funct3E      <= 3'b0;
             PCPlus4E     <= 32'b0;
+            btb_hitE     <= 1'b0;
+            btb_targetE  <= 32'b0;
         end 
         else if (flush) begin
             // Insert a bubble: zero ONLY the control bits
@@ -103,6 +109,8 @@ module id_ex_reg (
             rs2_addrE    <= rs2_addrD;
             funct3E      <= funct3D;
             PCPlus4E     <= PCPlus4D;
+            btb_hitE     <= 1'b0;
+            btb_targetE  <= 32'b0;
         end 
         else if (!stall) begin
             // Normal operation: pass all control and data from ID to EX
@@ -126,6 +134,8 @@ module id_ex_reg (
             rs2_addrE    <= rs2_addrD;
             funct3E      <= funct3D;
             PCPlus4E     <= PCPlus4D;
+            btb_hitE     <= btb_hitD;
+            btb_targetE  <= btb_targetD;
         end
     end
 

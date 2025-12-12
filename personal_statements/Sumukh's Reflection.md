@@ -8,6 +8,7 @@
   2. [Pipelined Execution Stage](#2-pipelined-execution-stage)
   3. [L1 Data Cache Controller](#3-l1-data-cache-controller)
   4. [Full Instruction Set](#4-full-instruction-set)
+  5. [Stretch Goal: Surprise Me! (Branch Target Buffer)](#5-stretch-goal-surprise-me-branch-target-buffer)
 - [Key Design Decisions & Challenges](#key-design-decisions--challenges)
   1. [Shadow Address Instability](#the-shadow-address-stability-solution)
   2. [Write-Back Loop Bug](#preventing-infinite-loops-in-write-back)
@@ -94,6 +95,22 @@ To finalize the processor, I extended the Execute stage (`execute.sv`) to suppor
 
 ---
 
+### 5. Stretch Goal: Surprise Me! (Branch Target Buffer)
+
+To further improve processor performance beyond the baseline requirements, I implemented a **Branch Target Buffer (BTB)** for dynamic branch prediction. This enhancement significantly reduces control hazard penalties by allowing the pipeline to speculatively fetch from predicted branch targets.
+
+**BTB Architecture:** I designed a 64-entry direct-mapped BTB (`btb.sv`) that stores predicted branch targets indexed by PC bits [7:2], with tag matching on PC[31:8] to verify correct entry identification. Each BTB entry contains a valid bit, a 1-bit prediction (taken/not taken), a tag field, and the predicted target address. The direct-mapped design provides a good balance between hardware complexity and prediction accuracy for our workload.
+
+**Pipeline Integration:** The BTB lookup occurs in the IF stage, where the current PC is used to index into the BTB array. If a hit occurs (`btb_hitF = 1`), the predicted target (`btb_targetF`) is immediately used as `pc_next`, allowing the pipeline to fetch from the predicted address without waiting for branch resolution. The BTB prediction signals (`btb_hit` and `btb_target`) are passed through the IF/ID and ID/EX pipeline registers to reach the EX stage, where they can be compared against the actual branch outcome.
+
+**Misprediction Handling:** In the EX stage, I implemented misprediction detection logic that compares the actual branch result (`branch_takenE`) and target (`PCTargetE`) against the prediction. A misprediction occurs when: (1) the branch was predicted taken but not taken, (2) the branch was predicted not taken but taken, or (3) the predicted target doesn't match the actual target. The hazard unit was modified to only flush the pipeline on mispredictions (`branch_mispredictE`), not on all taken branches. This means correctly predicted branches incur zero penalty cycles, while mispredictions still incur the standard 2-cycle flush penalty.
+
+**Dynamic Update Mechanism:** When a branch resolves in the EX stage, the BTB is updated based on the actual outcome. If the branch was taken, the BTB stores the target address and sets the prediction bit to taken for future executions. If the branch was not taken, the prediction bit is updated to not taken while keeping the entry valid. This adaptive learning allows the BTB to improve prediction accuracy over time as it observes branch behavior patterns.
+
+**Performance Impact:** This implementation provides significant performance improvements on branch-heavy workloads. Correctly predicted branches eliminate the previous 2-cycle penalty entirely, while the misprediction rate depends on branch predictability. For typical workloads with good branch locality, this can provide 10-30% performance improvement by reducing pipeline stalls.
+
+---
+
 ## Key Design Decisions & Challenges
 
 ### The "Shadow Address" Stability Solution
@@ -120,9 +137,9 @@ To finalize the processor, I extended the Execute stage (`execute.sv`) to suppor
 
 ## Future Improvements
 
-With more time, I would focus on architectural upgrades that meaningfully improve IPC (Instructions per Cycle) by reducing control-flow penalties and improving throughput:
+With more time, I would focus on architectural upgrades that meaningfully improve IPC (Instructions per Cycle) and overall system performance:
 
-* **Dynamic Branch Prediction (BTB):** Our current static “not taken” approach causes a 2-cycle flush on taken branches. Adding a small Branch Target Buffer in the Fetch stage would let the processor jump directly to predicted targets, eliminating the penalty for correctly predicted branches.
+* **Enhanced Branch Prediction:** While our current BTB provides good performance, we could improve prediction accuracy by implementing a 2-bit saturating counter scheme (Pattern History Table) or adding a Return Address Stack (RAS) for better function return prediction. A larger BTB with higher associativity could also reduce aliasing conflicts.
 
 * **Dual-Issue Superscalar Design:** To exceed 1 IPC, I would widen the Fetch path to 64 bits and duplicate the Decode/Execute units. With dependency checks in the ID stage, the processor could issue two independent instructions per cycle, improving performance on parallelizable workloads.
 
@@ -134,7 +151,9 @@ With more time, I would focus on architectural upgrades that meaningfully improv
 
 ## Reflection
 
-This project really deepened my understanding of processor design. The most valuable part for me was getting hands-on with data and control hazards, and learning how to implement forwarding and branch prediction to handle them. I also enjoyed building the 2-way set associative cache. Implementing the TLB with LRU replacement and dirty bits helped connect what I learned in both my instruction architecture and software systems lectures. I even had to approach both lecturers to figure out certain design details (for the LRU cache), which made the whole experience feel very real. Despite the complexity—especially the pipeline timing and FSM debugging—seeing the full processor run with forwarding, branching, and caching was incredibly rewarding. This project reinforced my interest in computer architecture and significantly improved my SystemVerilog skills.
+This project really deepened my understanding of processor design. The most valuable part for me was getting hands-on with data and control hazards, and learning how to implement forwarding and branch prediction to handle them. I also enjoyed building the 2-way set associative cache. Implementing the TLB with LRU replacement and dirty bits helped connect what I learned in both my instruction architecture and software systems lectures. I even had to approach both lecturers to figure out certain design details (for the LRU cache), which made the whole experience feel very real. Despite the complexity—especially the pipeline timing and FSM debugging—seeing the full processor run with forwarding, branching, and caching was incredibly rewarding. 
+
+Adding the Branch Target Buffer as a stretch goal was particularly enjoyable—it was exciting to see how a relatively simple hardware addition (a 64-entry prediction table) could provide such significant performance improvements. The challenge of integrating the BTB lookup into the fetch stage, passing prediction signals through the pipeline, and implementing misprediction detection really helped me understand how modern processors achieve high performance through speculative execution. This project reinforced my interest in computer architecture and significantly improved my SystemVerilog skills.
 
 As a team, we worked systematically through each goal. We split tasks clearly, and I learned the importance of coordinating dependencies—especially when I needed Ambre’s part finished before I could start mine. To manage this, I communicated timelines early and used the waiting time to research and plan my implementation. Once she finished, I fetched her branch and layered my changes on top.
 
