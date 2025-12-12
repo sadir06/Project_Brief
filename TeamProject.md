@@ -1,6 +1,6 @@
 ## Team members:
 
-[add names of your teammates]
+Ambre Carrier, Deniz Yilmazkaya, Lila Acanal, Sumukh Adiraju
 
 # Table of Contents
 
@@ -335,9 +335,9 @@ F1 lights are also implemented to run on this branch, it uses an automatic trigg
 ``` bash
 cd tb
 
-run_f1.sh    # runs on single-cycle by default
+./run_f1.sh    # runs on single-cycle by default
 
-run_f1.sh pipelined    # runs on pipelined if specified
+./run_f1.sh pipelined    # runs on pipelined if specified
 ```
 #### What it does: 
 - Automatically gets triggered to run F1 starting lights sequence
