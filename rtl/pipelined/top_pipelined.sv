@@ -1,6 +1,7 @@
 // Top-level pipelined RISC-V processor
 // Integrates all pipeline stages, registers, hazard detection, and forwarding
 
+/* verilator lint_off DECLFILENAME */
 module top_pipelined (
     input  logic        clk,
     input  logic        rst,
@@ -420,4 +421,5 @@ module top_pipelined (
         .ForwardBE(ForwardBE)
     );
 
+/* verilator lint_on DECLFILENAME */
 endmodule

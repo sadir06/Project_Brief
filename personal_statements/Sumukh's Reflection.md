@@ -61,8 +61,6 @@ The transition to a 5-stage pipeline required a complete re-architecture of the 
 * **Control Flow Handling:** I moved the branch decision logic into the Execute stage to resolve control hazards earlier. I implemented the `cond_trueE` logic to evaluate all branch conditions (`BEQ`, `BNE`, `BLT`, `BGE`, `BLTU`, `BGEU`) based on the `Funct3` field and ALU flags. I also had to add flush logic in the memory section for extra handling. (CPU is flushed if the "guess" is wrong)
 
 * **Complex Jump Targets:** I implemented the specialized target calculation for `JALR`, ensuring the target address `(rs1 + imm)` had its least significant bit masked (`& ~1`) to enforce 16-bit instruction alignment, a critical requirement for RISC-V compliance.
-
-* **AUIPC Support:** To support position-independent code, I modified the ALU datapath to accept the Program Counter (PC) as an operand via a new `ALUSrcAE` multiplexer.
  
 * **Testing:** As forwarding logic needed to be functional, I created a short test script to check if the forwarding logic would work. 
 
@@ -92,7 +90,7 @@ To finalize the processor, I extended the Execute stage (`execute.sv`) to suppor
 
 - **Absolute Jumps (JALR):** I engineered the specific target calculation logic for `JALR`, which requires masking the least significant bit `(rs1 + imm) & ~1`. This ensures 16-bit alignment compliance, which is critical for the RISC-V specification.
 
-- **AUIPC & LUI Support:** To support position-independent code, I integrated the `AUIPC` instruction by adding a new multiplexer (`ALUSrcAE`) before the ALU. This allows the Program Counter (PC) to be selected as an operand dynamically, enabling PC-relative address calculations in a single cycle.
+- **AUIPC & LUI Support:** To support position-independent code, I integrated the `AUIPC` instruction by extending the control unit with opcode `OPC_AUIPC = 7'b0010111` and a new `ALUSrcA` control signal. The control unit sets `ALUSrcA = 1'b1` for AUIPC instructions, which propagates through the ID/EX pipeline register to become `ALUSrcAE` in the execute stage. The execute stage uses this signal to select PC as ALU source A via a multiplexer: when `ALUSrcAE` is high, `SrcAE_final = PCE`; otherwise, `SrcAE_final = SrcAE_forwarded` (the normal forwarded rs1 value). With the U-type immediate (extracted from instruction bits [31:12] and shifted left by 12) as ALU source B and `ALUControl = ALU_ADD`, the instruction computes `rd = PC + (imm[31:12] << 12)` in a single cycle. This enables efficient PC-relative address calculations without requiring multiple instructions, which is essential for position-independent code and global offset table (GOT) access patterns.
 
 ---
 
