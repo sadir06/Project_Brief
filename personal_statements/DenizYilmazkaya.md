@@ -51,7 +51,7 @@ The F1 lights testbench was initially adapted from Lab-3 [Commit: 611f91f](https
         vbdHex(4, (top->a0 >> 4) & 0xF);
         vbdHex(3, top->a0 & 0xF);
 ```
-This enabled us to notice that the assembly code was not incrementing with the pattern 2n+1 atomically: the two-operation sequence created a visible intermediate state, causing the blink. Therefore, we added a temporary register that would be used to update the value of `a0`. [Commit: febede2](https://github.com/sadir06/Project_Brief/commit/febede2ba63da950e1913ecde23c1a7566186504):
+This enabled us to notice that the assembly code was not incrementing with the pattern 2^n + 1 atomically: the two-operation sequence created a visible intermediate state, causing the blink. Therefore, we added a temporary register that would be used to update the value of `a0`. [Commit: febede2](https://github.com/sadir06/Project_Brief/commit/febede2ba63da950e1913ecde23c1a7566186504):
 ``` asm
 increment_light:
     ADD  t3, a0, a0         # t3 = a0 * 2 (use temp register)
