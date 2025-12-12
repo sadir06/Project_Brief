@@ -185,7 +185,7 @@ end
 ```
 
 **MEM/WB Register:**
-These were more straightforward, passing ALU results, memory data, PC values, and control signals through the pipeline stages.
+This were more straightforward, passing ALU results, memory data, PC values, and control signals through the pipeline stages.
 
 Note: the EX/MEM register was implemented by another team member.
 
@@ -207,7 +207,7 @@ I built the initial `top_pipe.sv` module that instantiated all pipeline componen
 
 **Critical Bug - Register File Timing:**
 
-During testing, Deniz discovered timing issues with register writeback. I had implemented the register file to write on `posedge clk`, which created a race condition—the register file would update at the same time the ID stage was trying to read from it, causing data corruption. Deniz identified this issue and changed it to `negedge clk`, ensuring writes complete before the next cycle's reads. [Commit: 8b3e842](https://github.com/sadir06/Project_Brief/commit/8b3e84254f92aa9bc0ff7e8e50e1e0f8f58fb4c6)
+During testing, Deniz discovered timing issues with register writeback. I had implemented the register file to write on `posedge clk`, which created a race condition—the register file would update at the same time the ID stage was trying to read from it, causing data corruption. Deniz identified this issue and changed it to `negedge clk`, ensuring writes complete before the next cycle's reads.
 
 **Missing Signal - funct3 Pipelining:**
 
@@ -440,4 +440,5 @@ Given more time, I would:
 
 This project made computer architecture tangible. I understand now why processors use caches (experiencing the 4-cycle memory latency firsthand), why pipelining is hard (timing hazards are everywhere), and why standards like RISC-V specify byte addressing (to support sub-word operations cleanly).
 
-Most importantly, I learned that hardware design is iterative debugging. Nothing works the first time. The key is systematic verification—testing edge cases, examining waveforms, and maintaining clear communication with teammates. Seeing our processor successfully run the PDF reference program, with its complex memory access patterns operating correctly through our cache hierarchy was incredibly rewarding. It validated weeks of work debugging addressing modes, fixing timing issues, and refining our memory subsystem implementation.
+Most importantly, I learned that hardware design is iterative debugging. Nothing works the first time. The key is systematic verification like testing edge cases, examining waveforms, and maintaining clear communication with teammates. Seeing our processor successfully run the PDF reference program, with its complex memory access patterns operating correctly through our cache hierarchy was incredibly rewarding. It validated weeks of work debugging addressing modes, fixing timing issues, and refining our memory subsystem implementation.
+
