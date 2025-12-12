@@ -1,6 +1,6 @@
 ## Team members:
 
-[Add your team member names here]
+[add names of your teammates]
 
 # Table of contents:
 
@@ -84,8 +84,9 @@ Our processor implementation includes the following accomplishments:
 
 ## Team members and Statements:
 
-| Team Member     | GitHub                                                | CID      | Email           | Link to Personal Statement                        |
-
+| Team Member    | GitHub                                                | CID      | Email           | Link to Personal Statement                        |
+|-------------------|-------------------------------------------------------|----------|----------------------------|--------------------------------------------------|
+| Deniz Yilmazkaya  | [deniz-arda](https://github.com/deniz-arda)              | 02569298    | day24@ic.ac.uk          | [Personal Statement](personal_statements/DenizYilmazkaya.md) |
 
 ---
 
