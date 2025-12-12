@@ -115,6 +115,15 @@ Pictures of the plots:
 
 ### 2.3 Full RV32I Design Testing
 In order to test the full RISC-V32I implementation I wrote six further assembly tests, checking whether the individual instructions work, considering the edge cases for instructions such as branches and shifts. These can be viewed under the `tb/asm` folder. (See [Commit: ee95a97](https://github.com/sadir06/Project_Brief/commit/ee95a973e2573efa79e930c9a202fdee33fa991e) for the assembly test files.) 
+#### Overview of New Tests:
+| Test # | Name | Instructions Tested | Purpose |
+|--------|------|---------------------|---------|
+| 10 | `memory_offsets` | LW, SW with offsets | Address calculation |
+| 11 | `bitwise` | XOR, OR, AND | Logical operations |
+| 12 | `shifts` | SLL, SRL, SRA | Shift operations |
+| 13 | `store_halfwords` | SH, LH, LHU | 16-bit memory access |
+| 14 | `branches` | BEQ, BNE, BLT, BGE, BLTU, BGEU | All branch types |
+| 15 | `comparisons` | SLT, SLTU, SLTI, SLTIU | Comparison instructions |
 
 After adding these tests, I modified `verify.cpp` so that they were included in the automatic testing. 
 
