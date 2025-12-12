@@ -89,9 +89,11 @@ Our processor implementation includes the following accomplishments:
 | Single cycle          | `X`   | `X`   | `X`  | `X`   |
 | Pipelining            | `X`   | `X`   | `X`  | `X`   |
 | Cache                 | `X`   | `X`   | `X`  | `X`   |
-| Testing and Verification                 |    |    |   | `X`   |
+| Testing and Verification                 |    |    | `*`  | `X`   |
 
+`X` = Main contributer
 
+`*` = Partial contributer
 
 ## Team members and Statements:
 
@@ -99,6 +101,7 @@ Our processor implementation includes the following accomplishments:
 |-------------------|-------------------------------------------------------|----------|----------------------------|--------------------------------------------------|
 | Deniz Yilmazkaya  | [deniz-arda](https://github.com/deniz-arda)              | 02569298    | day24@ic.ac.uk          | [Personal Statement](personal_statements/DenizYilmazkaya.md) |
 | Ambre Carrier | [ambre-carrier](https://github.com/ambre622) | 02460734 | ac4024@ic.ac.uk | [Personal Statement](personal_statements/AmbreCarrier.md)|
+| Lila Acanal | [lilaacanal](https://github.com/lilaacanal) | 02638499 | lla24@ic.ac.uk | [Personal Statement](personal_statements/LilaAcanal.md)|
 
 ---
 
