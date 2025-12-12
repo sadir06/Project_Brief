@@ -41,7 +41,7 @@ I implemented the full RV32I control path by designing a combinational **control
 
 Instruction classes supported: R-type, I-type arithmetic, Load, Store, Branch, JAL / JALR, LUI / AUIPC
 
-**![](images/1.png)**  
+**![](../images/1.png)**  
 (taken from lecture slides)
 
 ### 2. Immediate Generator
@@ -76,7 +76,7 @@ I also implemented the basic branch semantics tied to the ALU flags, coordinated
 
 My work in this section of the project established the single-cycle CPU’s full control behaviour and served as architectural foundation on which the rest of my teammates built the datapath, and that we later reused for the pipelined and cached designs.
 
-![](images/2.png)
+![](../images/2.png)
 
 Diagram 1
 
@@ -158,7 +158,7 @@ and in top\_pipelined.sv:
 
 the PCWrite signal then selects whether to advance the PC or hold it (during load–use stalls)
 
-![](images/3.png)
+![](../images/3.png)
 
 Diagram 2
 
@@ -197,7 +197,7 @@ Our cache configuration:
 
 Each 32-bit byte address is split into tag, index, and offset fields:
 
-![](images/4.png)
+![](../images/4.png)
 
 For each way and set the cache stores: tag bits, valid flag, dirty flag, four 32-bit words and implements the replacement policy.
 
@@ -217,7 +217,7 @@ end
 
 In my design hit detection compares tag+valid for both ways and selects the word using word\_offset. This mechanism was fully implemented in my initial version and allowed us to validate address mapping before adding miss handling (data\_cache could tell “hit or miss” when miss handling wasn’t done yet).
 
-![](images/5.png)
+![](../images/5.png)
 
 Diagram 3
 
@@ -265,7 +265,7 @@ end
 
 I then designed the initial version of the five-state cache controller: 
 
-![](images/6.png)
+![](../images/6.png)
 
 Diagram 4
 
@@ -294,7 +294,7 @@ In my first implementation I made several mistakes:
 - Store masking handled incorrectly, fixed after integration testing  
 - cpu\_stall was asserted too often (including on hits), which my teammates corrected by gating it on “miss / non-IDLE” only, ensuring that a cache miss simply pauses the pipeline until the line has been written back and refilled
 
-![](images/7.png)
+![](../images/7.png)
 
 Diagram 5
 
@@ -327,7 +327,7 @@ Because I had previously implemented much of the control-path and hazard behavio
 
 I first started redesigning and extending control\_unit.sv to decode all RV32I arithmetic, logical, and shift instructions. I expanded it to include the full RV32I ALU R-type (ADD, SUB, SLL, SLT, SLTU, XOR, SRL, SRA, OR, AND) and I-type (ADDI, SLTI, SLTIU, XORI, ORI, ANDI, SLLI, SRLI, SR) instruction set using the lecture slides:
 
-![](images/8.png)![](images/9.png)
+![](../images/8.png)![](../images/9.png)
 
 To support these instructions, I restructured the control block around a complete case-analysis of opcode, funct3, and when necessary funct7. A key part of this was defining a 4-bit ALUControl code rather than the earlier 3-bit encoding like before to account for the extra instructions.
 

@@ -98,6 +98,7 @@ Our processor implementation includes the following accomplishments:
 | Team Member    | GitHub                                                | CID      | Email           | Link to Personal Statement                        |
 |-------------------|-------------------------------------------------------|----------|----------------------------|--------------------------------------------------|
 | Deniz Yilmazkaya  | [deniz-arda](https://github.com/deniz-arda)              | 02569298    | day24@ic.ac.uk          | [Personal Statement](personal_statements/DenizYilmazkaya.md) |
+| Ambre Carrier | [ambre-carrier](https://github.com/ambre622) | 02460734 | ac4024@ic.ac.uk | [Personal Statement](personal_statements/AmbreCarrier.md)|
 
 ---
 
