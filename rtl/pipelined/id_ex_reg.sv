@@ -12,6 +12,7 @@ module id_ex_reg (
     input  logic        JumpD,
     input  logic        JalrD,
     input  logic        ALUSrcD,
+    input  logic        ALUSrcAD,     // ALU source A select (1: use PC for AUIPC, 0: use rs1)
     input  logic [1:0]  ResultSrcD,
     input  logic [3:0]  ALUControlD,
     
@@ -34,6 +35,7 @@ module id_ex_reg (
     output logic        JumpE,
     output logic        JalrE,
     output logic        ALUSrcE,
+    output logic        ALUSrcAE,     // ALU source A select (1: use PC for AUIPC, 0: use rs1)
     output logic [1:0]  ResultSrcE,
     output logic [3:0]  ALUControlE,
     
@@ -59,6 +61,7 @@ module id_ex_reg (
             JumpE        <= 1'b0;
             JalrE        <= 1'b0;
             ALUSrcE      <= 1'b0;
+            ALUSrcAE     <= 1'b0;
             ResultSrcE   <= 2'b00;
             ALUControlE  <= 4'b000;
             
@@ -82,6 +85,7 @@ module id_ex_reg (
             JumpE        <= 1'b0;
             JalrE        <= 1'b0;
             ALUSrcE      <= 1'b0;
+            ALUSrcAE     <= 1'b0;
             ResultSrcE   <= 2'b00;
             ALUControlE  <= 4'b000;
             
@@ -109,6 +113,7 @@ module id_ex_reg (
             JumpE        <= JumpD;
             JalrE        <= JalrD;
             ALUSrcE      <= ALUSrcD;
+            ALUSrcAE     <= ALUSrcAD;
             ResultSrcE   <= ResultSrcD;
             ALUControlE  <= ALUControlD;
             

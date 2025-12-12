@@ -180,37 +180,32 @@ module data_cache (
     assign shadow_word_offset = shadow_offset[3:2];
     assign victim_tag    = tag_array[victim_way][shadow_index]; // Retrieve the old tag sitting in the victim slot to build the writeback address
 
-    // State register + reset of cache arrays
-    // Use posedge for everything
-    always_ff @(posedge clk or posedge rst) begin
-        integer w;
-        integer s;
-        integer word;
+    // Initialize cache arrays in separate initial block to avoid Verilator issues
+    initial begin
+        integer w, s, word;
+        for (w = 0; w < WAYS; w++) begin
+            for (s = 0; s < NUM_SETS; s++) begin
+                valid_array[w][s] = 1'b0;
+                dirty_array[w][s] = 1'b0;
+                tag_array[w][s] = '0;
+                for (word = 0; word < LINE_WORDS; word++) begin
+                    data_array[w][s][word] = 32'b0;
+                end
+            end
+        end
+        for (s = 0; s < NUM_SETS; s++) begin
+            lru_bit[s] = 1'b0;
+        end
+    end
 
+    // State register
+    always_ff @(posedge clk or posedge rst) begin
         if (rst) begin
             state <= C_IDLE;
             refill_cnt <= 2'd0;
             shadow_we <= 1'b0;
             shadow_wdata <= 32'b0;
             shadow_funct3 <= 3'b0;
-
-            // Clear all tags/valid/dirty and data arrays
-            for (w = 0; w < WAYS; w++) begin
-                for (s = 0; s < NUM_SETS; s++) begin
-                    valid_array[w][s] <= 1'b0;
-                    dirty_array[w][s] <= 1'b0;
-                    tag_array[w][s]   <= '0;
-
-                    for (word = 0; word < LINE_WORDS; word++) begin
-                        data_array[w][s][word] <= 32'b0;
-                    end
-                end
-            end
-
-            // Reset LRU bits
-            for (s = 0; s < NUM_SETS; s++) begin
-                lru_bit[s] <= 1'b0;
-            end
         end
         else begin
             state <= next_state;

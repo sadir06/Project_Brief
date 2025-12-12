@@ -1,6 +1,7 @@
 module execute (
     // Control Signals (From ID/EX Register)
     input  logic        ALUSrcE,
+    input  logic        ALUSrcAE,    // 1: use PC as srcA (for AUIPC), 0: use forwarded rs1
     input  logic [3:0]  ALUControlE,
 
     // Data Inputs (From ID/EX Register)
@@ -55,7 +56,9 @@ module execute (
     end
 
     // Final ALU operands
-    assign SrcAE_final = SrcAE_forwarded;
+    // For AUIPC: use PC as source A, otherwise use forwarded rs1
+    assign SrcAE_final = (ALUSrcAE) ? PCE : SrcAE_forwarded;
+    // For immediate instructions: use immediate as source B, otherwise use forwarded rs2
     assign SrcBE_final = (ALUSrcE) ? ImmExtE : SrcBE_forwarded;
 
     alu alu_inst (

@@ -8,6 +8,7 @@ module control_unit (
     output logic       MemWrite,
     output logic       MemRead,
     output logic       ALUSrc,      // 1: use ImmExt as srcB, 0: use rs2
+    output logic       ALUSrcA,     // 1: use PC as srcA (for AUIPC), 0: use rs1
     output logic       Branch,      //(B-type)?
     output logic       Jump,        // jal (J-type)?
     output logic       Jalr,        // jalr (I-type)?
@@ -21,6 +22,7 @@ localparam OPC_LOAD    = 7'b0000011; // lbu
 localparam OPC_STORE   = 7'b0100011; // sb
 localparam OPC_OP_IMM  = 7'b0010011; // addi
 localparam OPC_OP      = 7'b0110011; // add
+localparam OPC_AUIPC   = 7'b0010111; // auipc - Add Upper Immediate to PC
 localparam OPC_LUI     = 7'b0110111; // lui /li
 localparam OPC_BRANCH  = 7'b1100011; // bne
 localparam OPC_JALR    = 7'b1100111; // jalr
@@ -48,18 +50,19 @@ localparam RES_MEM     = 2'b01;      // rd = ReadData (lbu)
 localparam RES_PC4     = 2'b10;      // rd = PC+4 (jal / jalr)
 
 
-always_comb begin
-    //defaults = NOP
-    RegWrite   = 1'b0;
-    MemWrite   = 1'b0;
-    MemRead    = 1'b0;
-    ALUSrc     = 1'b0;
-    Branch     = 1'b0;
-    Jump       = 1'b0;
-    Jalr       = 1'b0;
-    ImmSrc     = 3'b000;
-    ResultSrc  = RES_ALU;
-    ALUControl = ALU_ADD;
+    always_comb begin
+        //defaults = NOP
+        RegWrite   = 1'b0;
+        MemWrite   = 1'b0;
+        MemRead    = 1'b0;
+        ALUSrc     = 1'b0;
+        ALUSrcA    = 1'b0;         // default: use rs1, not PC
+        Branch     = 1'b0;
+        Jump       = 1'b0;
+        Jalr       = 1'b0;
+        ImmSrc     = 3'b000;
+        ResultSrc  = RES_ALU;
+        ALUControl = ALU_ADD;
 
     unique case (opcode)
 
@@ -243,10 +246,21 @@ always_comb begin
             endcase
         end
 
+        //U-type: auipc - Add Upper Immediate to PC
+        OPC_AUIPC: begin
+            RegWrite   = 1'b1;         // Write result to rd
+            ALUSrc     = 1'b1;         // Use immediate as ALU source B
+            ALUSrcA    = 1'b1;         // Use PC as ALU source A (instead of rs1)
+            ImmSrc     = 3'b011;       // U-type immediate (bits [31:12] << 12)
+            ResultSrc  = RES_ALU;      // Write ALU result to rd
+            ALUControl = ALU_ADD;      // Add operation (PC + imm)
+        end
+
         //U-type: lui
         OPC_LUI: begin
             RegWrite   = 1'b1;
             ALUSrc     = 1'b1;         // use ImmExt as B
+            ALUSrcA    = 1'b0;         // use rs1 (but rs1 is ignored, PASS_B used)
             ImmSrc     = 3'b011;
             ResultSrc  = RES_ALU;      // rd = ImmExt
             ALUControl = ALU_PASS_B;

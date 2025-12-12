@@ -37,6 +37,7 @@ module top_pipelined (
     logic        JumpD;
     logic        JalrD;
     logic        ALUSrcD;
+    logic        ALUSrcAD;    // ALU source A select (ID stage) - for AUIPC
     logic [1:0]  ResultSrcD;
     logic [3:0]  ALUControlD;
     logic [2:0]  ImmSrcD;
@@ -58,6 +59,7 @@ module top_pipelined (
     logic        JumpE;
     logic        JalrE;
     logic        ALUSrcE;
+    logic        ALUSrcAE;    // ALU source A select (EX stage) - for AUIPC
     logic [1:0]  ResultSrcE;
     logic [3:0]  ALUControlE;
     
@@ -181,6 +183,7 @@ module top_pipelined (
         .MemWrite(MemWriteD),
         .MemRead(MemReadD),
         .ALUSrc(ALUSrcD),
+        .ALUSrcA(ALUSrcAD),    // Connect control unit output to ID stage signal
         .Branch(BranchD),
         .Jump(JumpD),
         .Jalr(JalrD),
@@ -228,6 +231,7 @@ module top_pipelined (
         .JumpD(JumpD),
         .JalrD(JalrD),
         .ALUSrcD(ALUSrcD),
+        .ALUSrcAD(ALUSrcAD),    // Pass ALUSrcA from ID to pipeline register
         .ResultSrcD(ResultSrcD),
         .ALUControlD(ALUControlD),
         
@@ -250,6 +254,7 @@ module top_pipelined (
         .JumpE(JumpE),
         .JalrE(JalrE),
         .ALUSrcE(ALUSrcE),
+        .ALUSrcAE(ALUSrcAE),    // Get ALUSrcA from pipeline register to EX stage
         .ResultSrcE(ResultSrcE),
         .ALUControlE(ALUControlE),
         
@@ -273,6 +278,7 @@ module top_pipelined (
     // Execute module (includes ALU, forwarding muxes, and branch condition logic)
     execute execute_inst (
         .ALUSrcE(ALUSrcE),
+        .ALUSrcAE(ALUSrcAE),    // Pass ALUSrcA to execute stage
         .ALUControlE(ALUControlE),
         .rs1_dataE(rs1_dataE),
         .rs2_dataE(rs2_dataE),
