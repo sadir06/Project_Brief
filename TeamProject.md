@@ -19,8 +19,11 @@
     - [pipelined](#pipelined)
 
 ---
+# Overview
 
-# Quick Start
+This repository contains our team’s complete implementation of an RV32I processor, developed progressively across several milestones and maintained across multiple branches for clarity and traceability. The project began with a fully working single-cycle CPU that implemented the core RV32I instruction subset. Building on this foundation, we extended the design into a five-stage pipelined processor that supported complete forwarding and hazard-detection logic, enabling correct resolution of data hazards, load–use dependencies, and control-flow changes due to branches and jumps. The final stage of development introduced a realistic 4 KiB, two-way set-associative write-back data cache, bringing the design closer to modern processor memory hierarchies by supporting tag checks across both ways, dirty and valid tracking, LRU replacement, and multi-cycle miss handling integrated with the pipeline’s stall signals.
+
+## Repo Structure
 
 We successfully completed the Single-Cycle CPU implementation and all stretch goals: Pipelined processor, Two-Way Set Associative Write-Back Cache, and Full RV32I Design. Our implementations are organized across multiple branches for clarity:
 
@@ -35,37 +38,6 @@ To access each version:
 ```bash
 git checkout <branch-name>
 ```
-
-### Testing Instructions
-
-To run the provided test suite:
-```bash
-cd tb
-./doit.sh              # For single-cycle
-./doit2.sh             # For pipelined (also tests single-cycle for comparison)
-./doit2.sh pipelined   # For pipelined only
-```
-
-### VBuddy Demonstrations
-
-To run F1 starting lights:
-```bash
-cd tb
-./run_f1.sh
-```
-
-To run PDF (Probability Density Function) visualization:
-```bash
-cd tb
-./run_pdf.sh reference/gaussian.mem    # or noisy.mem, triangle.mem
-```
-
----
-
-# Overview
-
-This repository contains our team’s complete implementation of an RV32I processor, developed progressively across several milestones and maintained across multiple branches for clarity and traceability. The project began with a fully working single-cycle CPU that implemented the core RV32I instruction subset. Building on this foundation, we extended the design into a five-stage pipelined processor that supported complete forwarding and hazard-detection logic, enabling correct resolution of data hazards, load–use dependencies, and control-flow changes due to branches and jumps. The final stage of development introduced a realistic 4 KiB, two-way set-associative write-back data cache, bringing the design closer to modern processor memory hierarchies by supporting tag checks across both ways, dirty and valid tracking, LRU replacement, and multi-cycle miss handling integrated with the pipeline’s stall signals.
-
 ---
 
 # Key Features & Achievements
@@ -106,6 +78,7 @@ Our processor implementation includes the following accomplishments:
 | Single cycle          | `X`   | `X`   | `X`  | `X`   |
 | Pipelining            | `X`   | `X`   | `X`  | `X`   |
 | Cache                 | `X`   | `X`   | `X`  | `X`   |
+| Testing and Verification                 |    |    |   | `X`   |
 
 
 
@@ -133,7 +106,7 @@ The branch "Single-Cycle-RV32I-Implementation" contains our initial single-cycle
 - I-type (Jump): `JALR`
 - S-type: `SB`, `SH`, `SW`
 - B-type: `BEQ`, `BNE`, `BLT`, `BGE`, `BLTU`, `BGEU`
-- U-type: `LUI`
+- U-type: `LUI`, `AUIPC`
 - J-type: `JAL`
 
 Directory structure:
@@ -303,30 +276,26 @@ Our processor underwent extensive verification through multiple testing approach
 
 We developed and utilized 15 comprehensive assembly test programs:
 
-### Provided Tests (1-5)
-1. **1_addi_bne.s** - Basic ADDI and BNE instructions
-2. **2_li_add.s** - Load immediate and ADD operations
-3. **3_lbu_sb.s** - Load byte unsigned and store byte
-4. **4_jal_ret.s** - JAL and JALR (function calls and returns)
-5. **5_pdf.s** - Probability density function calculation (1M+ cycles)
+| Test # | Name | Instructions Tested | Purpose |
+|--------|------|---------------------|---------|
+| 1 | `addi_bne` | ADDI, BNE | Basic arithmetic and branching |
+| 2 | `li_add` | LUI, ADD | Large immediate loading and addition |
+| 3 | `lbu_sb` | LBU, SB | Byte-level memory operations |
+| 4 | `jal_ret` | JAL, JALR | Function calls and returns |
+| 5 | `pdf` | All memory + arithmetic | Full program (512 bytes, histogram) |
+| 8 | `cache_hit` | LW, SW, ADDI | Cache hit performance waveforms |
+| 9 | `cache_miss_set_conflict` | LW across sets | Cache replacement (LRU) waveforms |
+| 10 | `memory_offsets` | LW, SW with offsets | Address calculation |
+| 11 | `bitwise` | XOR, OR, AND | Logical operations |
+| 12 | `shifts` | SLL, SRL, SRA | Shift operations |
+| 13 | `store_halfwords` | SH, LH, LHU | 16-bit memory access |
+| 14 | `branches` | BEQ, BNE, BLT, BGE, BLTU, BGEU | All branch types |
+| 15 | `comparisons` | SLT, SLTU, SLTI, SLTIU | Comparison instructions |
 
-### Extended Instruction Set Tests (10-15)
-Created to verify full RV32I implementation:
-- **10_memory_offsets.s** - Load/store with various offsets
-- **11_bitwise.s** - XOR, OR, AND, XORI, ORI, ANDI operations
-- **12_shifts.s** - SLL, SRL, SRA, SLLI, SRLI, SRAI instructions
-- **13_store_halfwords.s** - Halfword store operations
-- **14_branches.s** - All branch types (BEQ, BNE, BLT, BGE, BLTU, BGEU)
-- **15_comparisons.s** - SLT, SLTU, SLTI, SLTIU instructions
+# Testing Methodology
 
-### Cache-Specific Tests (8-9)
-Written to verify cache behavior:
-- **8_cache_hit.s** - Repeated loads to verify cache hits
-- **9_cache_miss_set_conflict.s** - Set conflicts and eviction behavior
-
-## Testing Methodology
-
-### Automated Testing
+## Automated Testing
+This can be ran on the main `Full-Instruction-Set-(Final-CPU)/main` branch for both single-cycle and pipelined processor implementations that are tested under the full RISCV-32I instruction set.
 Our automated test framework uses Verilator for simulation:
 - Compiles SystemVerilog RTL to C++ model
 - Runs each test program for specified cycles (typically 10,000)
@@ -336,27 +305,67 @@ Our automated test framework uses Verilator for simulation:
 
 All tests are executed via shell scripts:
 ```bash
-./doit.sh              # Runs all tests on single-cycle
-./doit2.sh             # Runs all tests and compares single vs. pipelined
-./doit2.sh pipelined   # Runs all tests on pipelined only
+cd tb
+
+./doit2.sh    # defaults to single-cycle implementation
+
+./doit2.sh pipelined    # for pipelined
 ```
+### Automated Test Outputs
+| Single Cycle | Pipelined |
+|:------------:|:---------:|
+| ![](tb/test_images/FullRISCV_SingleCycle.png) | ![](tb/test_images/FullRISCV32I_pipelined.png) |
 
-### Visual Verification with VBuddy
-Two demonstration programs run on VBuddy hardware:
+---
+## Visual Verification with VBuddy:
+## F1 Lights
+F1 lights are also implemented to run on this branch, it uses an automatic trigger therefore it will start executing the program without having to click the Vbuddy button. It uses an LFSR implemented on the code, which can be found under `/tb/asm/6_f1_lights.s`. To run the F1 lights implementation:
+``` bash
+cd tb
 
-**F1 Starting Lights:**
+run_f1.sh    # runs on single-cycle by default
+
+run_f1.sh pipelined    # runs on pipelined if specified
+```
+#### What it does: 
+- Automatically gets triggered to run F1 starting lights sequence
+- Shows hex output on the screen which was initially used for debugging
 - Implements F1 starting sequence with 8 LEDs
 - Pattern: 2^n + 1 (1 → 3 → 7 → 15 → 31 → 63 → 127 → 255)
 - Enhanced version includes LFSR-based random delays using XOR feedback
 - Demonstrates branches, subroutines, and sequential logic
-
-**PDF (Probability Density Function):**
+The video of it working can be found under folder `/tb/test_images`. The file is named `F1_lights_final.mp4`. [Watch F1 Lights Demo](tb/test_images/F1_lights_final.mp4)
+---
+## PDF (Probability Density Function): 
 - Plots three distributions: Gaussian, Noisy, Triangle
 - Processes data from memory (256 values)
 - Displays results on VBuddy screen
 - Tests load operations, memory access, and arithmetic
+### Running Reference Program
+The visual verification of PDF was completed on the `Single-Cycle-RV32I-Implementation` branch. The reference program Vbuddy implementation is run by switching to that branch and using the `run_pdf.sh` script:
 
-### Waveform Analysis
+``` bash
+cd tb
+
+./run_pdf.sh    # Runs Gaussian distribution by default
+
+# For other distributions, specify the path
+./run_pdf.sh reference/triangle.mem
+./run_pdf.sh reference/noisy.mem
+```
+Images of the different distributions:
+#### Gaussian Distribution
+![](tb/test_images/PDF_Gaussian_Photo.png)
+
+#### Noisy Distribution
+![](tb/test_images/PDF_Noisy_Photo.png)
+
+#### Triangle Distribution
+![](tb/test_images/PDF_Triangle_Photo.png)
+
+[For videos of the pdf testing click here](tb/test_images)
+
+## Waveform Analysis
 Used GTKWave extensively for:
 - Cache state machine verification
 - Pipeline stall signal propagation
@@ -364,26 +373,6 @@ Used GTKWave extensively for:
 - Branch flush behavior
 - Multi-cycle operations timing
 
-## Test Results
-
-All 15 assembly tests pass successfully on:
-- Single-cycle implementation
-- Pipelined implementation
-- Cached pipelined implementation
-- Full RV32I implementation
-
-**Example Test Output:**
-```
-[PASS] 1_addi_bne      - Expected: 254, Got: 254
-[PASS] 2_li_add        - Expected: 1000, Got: 1000
-[PASS] 3_lbu_sb        - Expected: 300, Got: 300
-[PASS] 4_jal_ret       - Expected: 53, Got: 53
-[PASS] 5_pdf           - Expected: 15363, Got: 15363
-[PASS] 8_cache_hit     - Expected: 126, Got: 126
-[PASS] 9_cache_miss... - Expected: 300, Got: 300
-...
-All tests passed!
-```
 
 ### Known Debug Solutions
 
@@ -401,42 +390,6 @@ During development, we encountered and resolved several critical issues:
 
 ---
 
-# Running:
-
-## Prerequisites
-- RISC-V GNU Toolchain
-- Verilator (for simulation)
-- VBuddy hardware (for visual demonstrations)
-- GTKWave (optional, for waveform viewing)
-
-## Single Cycle
-```bash
-cd tb
-./doit.sh
-```
-
-## Pipelined
-```bash
-cd tb
-./doit2.sh              # Tests both single-cycle and pipelined
-./doit2.sh pipelined    # Tests pipelined only
-```
-
-## F1 Lights Demo
-```bash
-cd tb
-./run_f1.sh
-```
-Press the VBuddy rotary button to start the sequence.
-
-## PDF Demo
-```bash
-cd tb
-./run_pdf.sh reference/gaussian.mem
-./run_pdf.sh reference/noisy.mem
-./run_pdf.sh reference/triangle.mem
-```
-
 ## Viewing Waveforms
 After running tests, waveforms are saved in `tb/test_out/<test_name>/`:
 ```bash
@@ -453,7 +406,7 @@ Integrating the 2-way set-associative cache required careful coordination with t
 - **Shadow Registers**: Implementing shadow registers to maintain pipeline state during multi-cycle cache operations
 - **Write-back Handling**: Managing dirty bit tracking and write-back on eviction
 
-## Pipeline Hazardss
+## Pipeline Hazards
 The pipelined implementation required sophisticated hazard handling:
 - **Data Hazards**: Implemented forwarding paths from MEM and WB stages to EX stage
 - **Load-Use Hazards**: Added stall logic in hazard unit for load-followed-by-use scenarios
