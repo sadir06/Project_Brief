@@ -57,7 +57,7 @@ https://github.com/sadir06/Project_Brief/tree/23fcc3d9d235c4321cd25c924b09c0213a
 
 The transition to a 5-stage pipeline required a complete re-architecture of the execution logic. I was responsible for the `execute.sv` module, which became the decision-making center of the pipeline.
 
-* **Data Hazard Resolution (Forwarding):** To maximize IPC (Instructions Per Cycle), I avoided simple stalling for Read-After-Write (RAW) hazards. Instead, I implemented a "Forwarding Unit" logic within the Execute stage. I designed 3-way multiplexers (`ForwardAE`/`ForwardBE`) that intelligently select operands from the Memory or Writeback stages if they are more recent than the values in the Register File.
+* **Data Hazard Resolution (Forwarding):** To maximize IPC (Instructions Per Cycle), I avoided simple stalling for Read-After-Write (RAW) hazards. Instead, I implemented forwarding logic within the Execute stage that checks if the source registers (`rs1E`, `rs2E`) match destination registers in the MEM or WB stages. I designed 3-way multiplexers (`ForwardAE`/`ForwardBE`) that intelligently select operands from the Memory stage (ALU result), Writeback stage (either ALU result or memory data via `ResultSrc`), or the normal register file output. The forwarding unit compares register addresses and sets select signals that prioritize more recent data, eliminating most data hazard stalls without adding pipeline bubbles.
 
 * **Control Flow Handling:** I moved the branch decision logic into the Execute stage to resolve control hazards earlier. I implemented the `cond_trueE` logic to evaluate all branch conditions (`BEQ`, `BNE`, `BLT`, `BGE`, `BLTU`, `BGEU`) based on the `Funct3` field and ALU flags. I also had to add flush logic in the memory section for extra handling. (CPU is flushed if the "guess" is wrong)
 
@@ -73,11 +73,11 @@ https://github.com/sadir06/Project_Brief/tree/61872e8eebac1d91bda756d8e84f17b8e2
 
 My most significant design contribution was the memory hierarchy. I engineered a **Write-Back, Write-Allocate, 2-Way Set-Associative Cache Controller**.
 
-* **FSM Architecture:** I designed the Finite State Machine (`data_cache.sv`) with five distinct states (`IDLE`, `MISS_SELECT`, `WRITEBACK`, `REFILL`, `RESPOND`) to handle the variable latency of main memory.
+* **FSM Architecture:** I designed the Finite State Machine (`data_cache.sv`) with five distinct states (`IDLE`, `MISS_SELECT`, `WRITEBACK`, `REFILL`, `RESPOND`) to handle the variable latency of main memory. The state machine begins in `IDLE`, waiting for CPU requests. On a cache miss, it transitions to `MISS_SELECT` to determine the victim way using the LRU bit. If the victim is dirty, the FSM enters `WRITEBACK` to save the evicted line before refilling. The `REFILL` state performs a 4-word burst read from memory using an internal counter, and finally `RESPOND` completes the operation and returns control to the CPU.
 
-* **Replacement Policy:** I implemented a Least Recently Used (LRU) policy using a "flip-bit" strategy per set. This efficiently tracks access patterns and evicts the least useful cache line during a collision.
+* **Replacement Policy:** I implemented a Least Recently Used (LRU) policy using a "flip-bit" strategy per set. Each 2-way set has a single LRU bit that tracks which way was accessed most recently. On access, the LRU bit flips to indicate the other way as least recently used. During eviction, the LRU bit directly selects the victim way. This efficiently tracks access patterns and evicts the least useful cache line during a collision, requiring only 1 bit per set (128 bits total) rather than the more complex true-LRU tracking.
 
-* **Memory Interface Muxing:** I designed the logic to intercept the CPU's memory requests. During cache misses, the FSM takes control of the main memory interface, using a 2-bit internal counter (`refill_cnt`) to burst-read or write-back 16-byte cache lines automatically.
+* **Memory Interface Muxing:** I designed the logic to intercept the CPU's memory requests. During cache misses, the FSM takes control of the main memory interface, using a 2-bit internal counter (`refill_cnt`) to burst-read or write-back 16-byte cache lines automatically. The counter sequences through addresses `{index, offset[3:2]}` to fetch or write all four words in the cache line, with the state machine handling address generation and memory handshaking transparently to the CPU pipeline.
 
 ---
 
@@ -115,13 +115,13 @@ To further improve processor performance beyond the baseline requirements, I imp
 
 ### The "Shadow Address" Stability Solution
 
-**Challenge:** During cache stress testing, we noticed data corruption during refill sequences. I debugged this and realized that while the CPU pipeline was stalled, the address signals coming from the Execute stage were fluctuating, causing the cache to write incoming data to the wrong index.
-**Solution:** I introduced a **Shadow Address Register** (`shadow_addr`) inside the cache controller. This register latches the exact faulting address the moment a miss is detected (transitioning from `IDLE` to `MISS_SELECT`). This ensures the FSM operates on a stable address throughout the multi-cycle refill process, regardless of pipeline noise.
+**Challenge:** During cache stress testing with Deniz, we noticed data corruption during refill sequences. I debugged this using GTKWave waveform analysis and discovered that while the CPU pipeline was stalled (the hazard unit correctly prevented PC advancement), the address signals coming from the Execute stage (`cpu_addr`) were still fluctuating due to forwarding logic and intermediate pipeline states. This caused the cache to write incoming refill data to the wrong index, corrupting unrelated cache lines.
+**Solution:** I introduced a **Shadow Address Register** (`shadow_addr`) inside the cache controller that latches the exact faulting address the moment a miss is detected (during the transition from `IDLE` to `MISS_SELECT`). This register stores a stable copy of the address throughout the entire multi-cycle refill process. All subsequent cache operations (tag/index/offset extraction, way selection, memory burst addressing) use `shadow_addr` instead of `cpu_addr`. This ensures the FSM operates on a stable address throughout the multi-cycle refill process, regardless of pipeline noise or forwarding changes. Working with Deniz on this debugging session highlighted the importance of understanding pipeline behavior even during stalls.
 
 ### Preventing Infinite Loops in Write-Back
 
-**Challenge:** Initially, my FSM logic would sometimes get stuck in the `WRITEBACK` state or overwrite dirty data incorrectly.
-**Solution:** I refined the state transition logic to explicitly check the `Dirty` bit of the *victim* way (determined by LRU) during `MISS_SELECT`. If dirty, the FSM transitions to `WRITEBACK` to save the data; if clean, it skips directly to `REFILL`. This optimization reduced memory traffic and prevented data loss.
+**Challenge:** During initial cache testing, my FSM logic would sometimes get stuck in the `WRITEBACK` state, causing the processor to hang. Additionally, the cache was incorrectly overwriting dirty data during evictions. Through waveform analysis, I discovered the state transition logic wasn't properly checking the dirty bit of the victim way before deciding whether to writeback.
+**Solution:** I refined the state transition logic in `MISS_SELECT` to explicitly check the `Dirty` bit of the victim way (determined by the LRU bit) before transitioning. If dirty, the FSM transitions to `WRITEBACK` to save the data; if clean, it skips directly to `REFILL`. This optimization reduced unnecessary memory traffic by skipping writebacks for clean lines, and more importantly, prevented data loss by ensuring dirty lines are always saved before eviction. The fix also eliminated the infinite loop by ensuring proper state transitions.
 
 ### Return Address Continuity
 
@@ -151,13 +151,31 @@ With more time, I would focus on architectural upgrades that meaningfully improv
 
 ## Reflection
 
-This project really deepened my understanding of processor design. The most valuable part for me was getting hands-on with data and control hazards, and learning how to implement forwarding and branch prediction to handle them. I also enjoyed building the 2-way set associative cache. Implementing the TLB with LRU replacement and dirty bits helped connect what I learned in both my instruction architecture and software systems lectures. I even had to approach both lecturers to figure out certain design details (for the LRU cache), which made the whole experience feel very real. Despite the complexity—especially the pipeline timing and FSM debugging—seeing the full processor run with forwarding, branching, and caching was incredibly rewarding. 
+This project transformed my understanding of processor design from theoretical concepts to concrete hardware implementation. The most valuable part for me was getting hands-on experience with data and control hazards, learning how to implement forwarding and branch prediction to handle them efficiently. Building the 2-way set-associative cache was particularly engaging—implementing the FSM with LRU replacement and dirty bit tracking helped connect concepts from both my Instruction Architecture and Software Systems modules. I even approached both lecturers to clarify certain design details (particularly the LRU flip-bit strategy), which made the whole experience feel authentic and professionally relevant.
 
-Adding the Branch Target Buffer as a stretch goal was particularly enjoyable—it was exciting to see how a relatively simple hardware addition (a 64-entry prediction table) could provide such significant performance improvements. The challenge of integrating the BTB lookup into the fetch stage, passing prediction signals through the pipeline, and implementing misprediction detection really helped me understand how modern processors achieve high performance through speculative execution. This project reinforced my interest in computer architecture and significantly improved my SystemVerilog skills.
+### Technical Growth
 
-As a team, we worked systematically through each goal. We split tasks clearly, and I learned the importance of coordinating dependencies—especially when I needed Ambre’s part finished before I could start mine. To manage this, I communicated timelines early and used the waiting time to research and plan my implementation. Once she finished, I fetched her branch and layered my changes on top.
+The cache implementation was my most significant learning experience. Debugging the shadow address issue with Deniz taught me that even when the pipeline is "stalled," signals can still fluctuate due to forwarding and intermediate states. Using GTKWave to trace through multi-cycle cache operations revealed timing relationships I hadn't fully appreciated. The writeback loop bug taught me the importance of exhaustive state machine testing—every state transition path must be verified.
 
-As the repo master, I set up a clean Git structure with a single main branch and multiple feature branches (one for each of our implementations). I also created extra branches for each milestone (e.g., single-cycle CPU, pipelined CPU) to make future testing and rollback easy. Early on, I helped teammates with Git basics like creating PRs and reviewing merges. We made sure that every PR was reviewed by the whole team before merging to main.
+Implementing the forwarding unit required careful understanding of pipeline timing. Initially, I had bugs where forwarding wasn't working correctly because I wasn't checking the `RegWrite` signals in MEM and WB stages (disabled instructions shouldn't forward). This taught me that control signals are just as important as data signals for correctness.
 
-Overall, this project was an invaluable introduction to hardware design. I gained a much deeper understanding of how modern CPUs handle instructions, especially with pipelining and caching. I also strengthened my Git workflow skills and learned what it feels like to work in an engineering team shipping real features. It was challenging at times, but figuring out the implementation details made it genuinely rewarding.
+Adding the Branch Target Buffer as a stretch goal was particularly enjoyable—it was exciting to see how a relatively simple hardware addition (a 64-entry prediction table) could provide such significant performance improvements. The challenge of integrating the BTB lookup into the fetch stage, passing prediction signals through the pipeline registers, and implementing misprediction detection really helped me understand how modern processors achieve high performance through speculative execution.
+
+### Collaborative Insights
+
+Working with Deniz on cache debugging sessions was invaluable. His waveform analysis skills complemented my FSM design knowledge—he could spot timing issues I missed, while I could trace the state machine logic. When we discovered the address instability problem, we spent several hours in GTKWave before identifying that the Execute stage address signals were changing during stalls. This collaborative debugging approach was far more effective than working in isolation.
+
+Coordinating with Lila on memory interface changes when extending the cache was crucial. I had to ensure that my cache controller's byte-level operation support matched her data memory module's capabilities. This taught me the importance of clearly defined interfaces and communicating changes early.
+
+### Lessons Learned
+
+The most important lesson was that correct logic isn't enough—timing relationships are equally critical. The pipeline register timing issue (negedge vs posedge) that Deniz discovered in my register file design reinforced this. I had implemented logically correct code, but the clock edge choice created race conditions.
+
+I also learned the value of systematic verification. Creating test scripts to verify forwarding worked before integrating it into the full pipeline saved significant debugging time later. Testing each component in isolation, then integrating incrementally, proved far more effective than trying to debug the entire system at once.
+
+### Conclusion
+
+Overall, this project was an invaluable introduction to hardware design. I gained a much deeper understanding of how modern CPUs handle instructions, especially with pipelining and caching. Implementing the execute stage, cache controller, and BTB significantly improved my SystemVerilog skills and gave me confidence in designing complex hardware systems. As the repo master, I strengthened my Git workflow skills and learned what it feels like to work in an engineering team shipping real features.
+
+Despite the challenges—especially pipeline timing issues and FSM debugging—seeing the full processor successfully run all tests with forwarding, branch prediction, and caching was incredibly rewarding. The debugging sessions, though sometimes frustrating, were where the most learning happened. This project reinforced my interest in computer architecture and demonstrated that hardware design requires both careful planning and iterative problem-solving.
 

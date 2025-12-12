@@ -89,6 +89,7 @@ Our processor implementation includes the following accomplishments:
 | Single cycle          | `X`   | `X`   | `X`  | `X`   |
 | Pipelining            | `X`   | `X`   | `X`  | `X`   |
 | Cache                 | `X`   | `X`   | `X`  | `X`   |
+| Division of tasks/file structure | `X`   |       |      |       |
 | Testing and Verification                 |    |    | `*`  | `X`   |
 
 `X` = Main contributer
