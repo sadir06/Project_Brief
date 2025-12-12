@@ -10,7 +10,7 @@ module btb (
     input  logic [31:0] pc_lookup,           // PC to look up
     output logic        btb_hit,             // 1 if BTB has entry for this PC
     output logic        btb_predict_taken,   // 1 if BTB predicts taken, 0 if predicts not taken
-    output logic [31:0] btb_target           // Predicted target address
+    output logic [31:0] btb_target,          // Predicted target address
     
     // Update port (used in EX stage when branch resolves)
     input  logic        update_en,          // 1 to update BTB entry
