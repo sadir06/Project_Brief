@@ -1,6 +1,8 @@
 ## Team members:
-
-
+Sumukh Adiraju - CID: 02563601
+Ambre Carrier - CID: 
+Lea Acanal - CID: 
+Deniz Yilmazkaya - CID:
 
 
 # Table of contents:
@@ -25,7 +27,9 @@ This repository contains our team’s complete implementation of an RV32I proces
 
 # Repo Structure
 Our repository is organised into multiple branches that each correspond to one major stage of the project: the single-cycle processor, the pipelined implementation of it, then cached pipelined, and finally the full RV32I instruction-complete implementation. 
-We also worked on our individual branches to not disrupt the whole project we were working on.
+We also worked on our individual branches to not disrupt the whole project we were working on. Once one person completed their section and the team was happy with their implementation, we created PRs and merged with main. 
+
+For easy testing, we created new branches with the final commit of a specific section in it. For example, in the "Single-Cycle-RV32I-Implementation", we placed the final commit that had the fully implemented single cycle CPU (without the pipelining/cache).
 
 ## Single Cycle RV32I Implementation
 
