@@ -40,6 +40,17 @@ My work began with building the fundamental hardware blocks that define the RV32
 
 * **ALU Design:** I designed the 32-bit ALU to handle the initial subset of arithmetic operations (`ADD`, `SUB`) and later extended it to support the full instruction set. This included implementing logical operations (`XOR`, `OR`, `AND`) and robust shift logic (`SLL`, `SRL`, `SRA`), ensuring arithmetic shifts correctly preserved the sign bit using SystemVerilog's `>>>` operator. (This final part was added later on when we added the "Full Instruction Set")
 
+The ALU implementation handles all RV32I operations, with arithmetic shift being particularly important for correct sign extension:
+
+```systemverilog
+// shifts: RV32I uses only lower 5 bits of shift amount
+ALU_SLL:    ALUResult = SrcA <<  SrcB[4:0];
+ALU_SRL:    ALUResult = SrcA >>  SrcB[4:0];
+ALU_SRA:    ALUResult = $signed(SrcA) >>> SrcB[4:0];
+```
+
+The `>>>` operator performs an arithmetic right shift, preserving the sign bit by replicating the most significant bit, which is essential for correctly implementing the `SRA` instruction. This distinguishes it from logical shift (`>>`) which fills with zeros.
+
 * **Register File:** I implemented the dual-port asynchronous read / single-port synchronous write Register File, ensuring register `x0` was hardwired to zero to meet RISC-V specifications.
 
 * **Top-Level Wiring:** I created the initial `top.sv` module, effectively wiring the Program Counter, Control Unit, and Data Path together to create our first working single-cycle CPU.
@@ -59,7 +70,49 @@ The transition to a 5-stage pipeline required a complete re-architecture of the 
 
 * **Data Hazard Resolution (Forwarding):** To maximize IPC (Instructions Per Cycle), I avoided simple stalling for Read-After-Write (RAW) hazards. Instead, I implemented forwarding logic within the Execute stage that checks if the source registers (`rs1E`, `rs2E`) match destination registers in the MEM or WB stages. I designed 3-way multiplexers (`ForwardAE`/`ForwardBE`) that intelligently select operands from the Memory stage (ALU result), Writeback stage (either ALU result or memory data via `ResultSrc`), or the normal register file output. The forwarding unit compares register addresses and sets select signals that prioritize more recent data, eliminating most data hazard stalls without adding pipeline bubbles.
 
+The forwarding unit logic (`forward_unit.sv`) determines which source to forward:
+
+```systemverilog
+// Forward for rs1E (ALU srcA)
+if (RegWriteM && (rdM != 5'd0) && (rdM == rs1E)) begin
+    ForwardAE = 2'b10;           // from EX/MEM (ALUResultM)
+end else if (RegWriteW && (rdW != 5'd0) && (rdW == rs1E)) begin
+    ForwardAE = 2'b01;           // from MEM/WB (WriteDataW)
+end
+```
+
+The execute stage then uses these control signals to select the forwarded data:
+
+```systemverilog
+case (ForwardAE)
+    2'b00: SrcAE_forwarded = rs1_dataE;
+    2'b01: SrcAE_forwarded = ResultW;      // from WB
+    2'b10: SrcAE_forwarded = ALUResultM;   // from MEM
+    default: SrcAE_forwarded = rs1_dataE;
+endcase
+```
+
+This ensures that instructions always receive the most recent value of their source operands, even if those values haven't yet been written back to the register file.
+
 * **Control Flow Handling:** I moved the branch decision logic into the Execute stage to resolve control hazards earlier. I implemented the `cond_trueE` logic to evaluate all branch conditions (`BEQ`, `BNE`, `BLT`, `BGE`, `BLTU`, `BGEU`) based on the `Funct3` field and ALU flags. I also had to add flush logic in the memory section for extra handling. (CPU is flushed if the "guess" is wrong)
+
+The branch condition evaluation uses the ALU's comparison results and zero flag:
+
+```systemverilog
+always_comb begin
+    case (funct3E)
+        3'b000: cond_trueE = ZeroE;           // BEQ
+        3'b001: cond_trueE = ~ZeroE;          // BNE
+        3'b100: cond_trueE = ALUResultE[0];   // BLT  (SLT result)
+        3'b101: cond_trueE = ~ALUResultE[0];  // BGE
+        3'b110: cond_trueE = ALUResultE[0];   // BLTU (SLTU result)
+        3'b111: cond_trueE = ~ALUResultE[0];  // BGEU
+        default: cond_trueE = 1'b0;
+    endcase
+end
+```
+
+For signed/unsigned comparisons, the ALU performs `SLT` or `SLTU` operations (resulting in 0 or 1), and the branch condition checks the least significant bit of the ALU result to determine if the comparison was true.
 
 * **Complex Jump Targets:** I implemented the specialized target calculation for `JALR`, ensuring the target address `(rs1 + imm)` had its least significant bit masked (`& ~1`) to enforce 16-bit instruction alignment, a critical requirement for RISC-V compliance.
  
@@ -93,6 +146,18 @@ To finalize the processor, I extended the Execute stage (`execute.sv`) to suppor
 
 - **AUIPC & LUI Support:** To support position-independent code, I integrated the `AUIPC` instruction by extending the control unit with opcode `OPC_AUIPC = 7'b0010111` and a new `ALUSrcA` control signal. The control unit sets `ALUSrcA = 1'b1` for AUIPC instructions, which propagates through the ID/EX pipeline register to become `ALUSrcAE` in the execute stage. The execute stage uses this signal to select PC as ALU source A via a multiplexer: when `ALUSrcAE` is high, `SrcAE_final = PCE`; otherwise, `SrcAE_final = SrcAE_forwarded` (the normal forwarded rs1 value). With the U-type immediate (extracted from instruction bits [31:12] and shifted left by 12) as ALU source B and `ALUControl = ALU_ADD`, the instruction computes `rd = PC + (imm[31:12] << 12)` in a single cycle. This enables efficient PC-relative address calculations without requiring multiple instructions, which is essential for position-independent code and global offset table (GOT) access patterns.
 
+The PC selection for AUIPC is implemented in the execute stage:
+
+```systemverilog
+// Final ALU operands
+// For AUIPC: use PC as source A, otherwise use forwarded rs1
+assign SrcAE_final = (ALUSrcAE) ? PCE : SrcAE_forwarded;
+// For immediate instructions: use immediate as source B, otherwise use forwarded rs2
+assign SrcBE_final = (ALUSrcE) ? ImmExtE : SrcBE_forwarded;
+```
+
+This multiplexer allows AUIPC to use the current PC value (in the EX stage) as the ALU's source A, while other instructions use the normal forwarded register value. Combined with the U-type immediate (already shifted left by 12 in the immediate generator) as source B, this computes the PC-relative address in a single cycle.
+
 ---
 
 ### 5. Stretch Goal: Surprise Me! (Branch Target Buffer - Prototype)
@@ -120,10 +185,50 @@ As a performance enhancement beyond the baseline requirements, I attempted to im
 **Challenge:** During cache stress testing with Deniz, we noticed data corruption during refill sequences. I debugged this using GTKWave waveform analysis and discovered that while the CPU pipeline was stalled (the hazard unit correctly prevented PC advancement), the address signals coming from the Execute stage (`cpu_addr`) were still fluctuating due to forwarding logic and intermediate pipeline states. This caused the cache to write incoming refill data to the wrong index, corrupting unrelated cache lines.
 **Solution:** I introduced a **Shadow Address Register** (`shadow_addr`) inside the cache controller that latches the exact faulting address the moment a miss is detected (during the transition from `IDLE` to `MISS_SELECT`). This register stores a stable copy of the address throughout the entire multi-cycle refill process. All subsequent cache operations (tag/index/offset extraction, way selection, memory burst addressing) use `shadow_addr` instead of `cpu_addr`. This ensures the FSM operates on a stable address throughout the multi-cycle refill process, regardless of pipeline noise or forwarding changes. Working with Deniz on this debugging session highlighted the importance of understanding pipeline behavior even during stalls.
 
+The shadow address capture occurs in the `C_IDLE` state when a miss is detected:
+
+```systemverilog
+C_IDLE: begin
+    if (cpu_req && !hit) begin
+        // Start of the logic for a miss - capture miss information
+        shadow_addr   <= cpu_addr; // Capture the address that caused the miss
+        shadow_we     <= cpu_we;
+        shadow_wdata  <= cpu_wdata;
+        shadow_funct3 <= cpu_funct3;
+    end
+    // ...
+end
+```
+
+All subsequent operations during refill use `shadow_addr` instead of `cpu_addr`:
+
+```systemverilog
+assign shadow_index  = shadow_addr[OFFSET_BITS +: INDEX_BITS];
+assign shadow_tag    = shadow_addr[31 -: TAG_BITS];
+assign shadow_offset = shadow_addr[OFFSET_BITS-1:0];
+```
+
 ### Preventing Infinite Loops in Write-Back
 
 **Challenge:** During initial cache testing, my FSM logic would sometimes get stuck in the `WRITEBACK` state, causing the processor to hang. Additionally, the cache was incorrectly overwriting dirty data during evictions. Through waveform analysis, I discovered the state transition logic wasn't properly checking the dirty bit of the victim way before deciding whether to writeback.
 **Solution:** I refined the state transition logic in `MISS_SELECT` to explicitly check the `Dirty` bit of the victim way (determined by the LRU bit) before transitioning. If dirty, the FSM transitions to `WRITEBACK` to save the data; if clean, it skips directly to `REFILL`. This optimization reduced unnecessary memory traffic by skipping writebacks for clean lines, and more importantly, prevented data loss by ensuring dirty lines are always saved before eviction. The fix also eliminated the infinite loop by ensuring proper state transitions.
+
+The state transition logic now properly checks the dirty bit:
+
+```systemverilog
+C_MISS_SELECT: begin
+    // Check if the chosen victim (via LRU) is dirty
+    if (valid_array[lru_bit[shadow_index]][shadow_index] &&
+        dirty_array[lru_bit[shadow_index]][shadow_index]) begin
+        next_state = C_WRITEBACK; // Need to write back first
+    end
+    else begin
+        next_state = C_REFILL; // Clean, can go straight to refill
+    end
+end
+```
+
+This ensures that dirty lines are always written back before being overwritten, preventing data loss while also optimizing performance by skipping unnecessary writebacks for clean lines.
 
 ### Return Address Continuity
 
