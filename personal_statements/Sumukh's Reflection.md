@@ -95,9 +95,9 @@ To finalize the processor, I extended the Execute stage (`execute.sv`) to suppor
 
 ---
 
-### 5. Stretch Goal: Surprise Me! (Branch Target Buffer)
+### 5. Stretch Goal: Surprise Me! (Branch Target Buffer - Prototype)
 
-To further improve processor performance beyond the baseline requirements, I implemented a **Branch Target Buffer (BTB)** for dynamic branch prediction. This enhancement significantly reduces control hazard penalties by allowing the pipeline to speculatively fetch from predicted branch targets.
+As a performance enhancement beyond the baseline requirements, I attempted to implement a **Branch Target Buffer (BTB)** for dynamic branch prediction. This would have significantly reduced control hazard penalties by allowing the pipeline to speculatively fetch from predicted branch targets. However, due to implementation challenges and time constraints, we were unable to fully complete the BTB integration. The BTB was removed from the final version to ensure all baseline functionality remained fully working and verified. A prototype implementation can be found in the `Branch Prediction Prototype` branch for reference.
 
 **BTB Architecture:** I designed a 64-entry direct-mapped BTB (`btb.sv`) that stores predicted branch targets indexed by PC bits [7:2], with tag matching on PC[31:8] to verify correct entry identification. Each BTB entry contains a valid bit, a 1-bit prediction (taken/not taken), a tag field, and the predicted target address. The direct-mapped design provides a good balance between hardware complexity and prediction accuracy for our workload.
 
@@ -108,6 +108,8 @@ To further improve processor performance beyond the baseline requirements, I imp
 **Dynamic Update Mechanism:** When a branch resolves in the EX stage, the BTB is updated based on the actual outcome. If the branch was taken, the BTB stores the target address and sets the prediction bit to taken for future executions. If the branch was not taken, the prediction bit is updated to not taken while keeping the entry valid. This adaptive learning allows the BTB to improve prediction accuracy over time as it observes branch behavior patterns.
 
 **Performance Impact:** This implementation provides significant performance improvements on branch-heavy workloads. Correctly predicted branches eliminate the previous 2-cycle penalty entirely, while the misprediction rate depends on branch predictability. For typical workloads with good branch locality, this can provide 10-30% performance improvement by reducing pipeline stalls.
+
+**Implementation Challenges:** During implementation and testing, we encountered issues with the BTB integration that caused several test cases to fail. The misprediction detection logic and the interaction between BTB predictions and EX stage branch resolution proved more complex than initially anticipated. Despite significant debugging effort, we were unable to fully resolve all issues within the project timeline, leading to the decision to remove it from the final version.
 
 ---
 
@@ -159,7 +161,7 @@ The cache implementation was my most significant learning experience. Debugging 
 
 Implementing the forwarding unit required careful understanding of pipeline timing. Initially, I had bugs where forwarding wasn't working correctly because I wasn't checking the `RegWrite` signals in MEM and WB stages (disabled instructions shouldn't forward). This taught me that control signals are just as important as data signals for correctness.
 
-Adding the Branch Target Buffer as a stretch goal was particularly enjoyable—it was exciting to see how a relatively simple hardware addition (a 64-entry prediction table) could provide such significant performance improvements. The challenge of integrating the BTB lookup into the fetch stage, passing prediction signals through the pipeline registers, and implementing misprediction detection really helped me understand how modern processors achieve high performance through speculative execution.
+Attempting to add the Branch Target Buffer as a stretch goal was particularly educational—it showed me how modern processors achieve high performance through speculative execution. While we ultimately had to remove it from the final version due to incomplete implementation, the experience of designing the BTB lookup, integrating it into the fetch stage, passing prediction signals through the pipeline registers, and implementing misprediction detection gave me valuable insights into the challenges of dynamic branch prediction. The prototype implementation can be found in the `Branch Prediction Prototype` branch.
 
 ### Collaborative Insights
 
